@@ -29,3 +29,18 @@ o `pg_hba.conf` exige senha até pelo socket local, por isso temos que usar o `P
 
 Os scripts de `db/init/` rodam apenas na primeira criação do volume. Para
 reaplicá-los, primeiro use `docker compose down -v`.
+
+## Migrations
+
+As tabelas são criadas pelo Alembic (`backend/alembic/versions/`), e o backend roda
+`alembic upgrade head` sozinho ao subir. `db/init/` só habilita a extensão `pgcrypto`.
+Os models SQLAlchemy ficam em `backend/app/models.py`.
+
+```bash
+docker compose exec backend alembic upgrade head      # aplica
+docker compose exec backend alembic downgrade base    # desfaz tudo
+docker compose exec backend alembic revision -m "..." # nova migration
+```
+
+Se o volume foi criado antes das migrations (quando `db/init` ainda criava `users`),
+rode `docker compose down -v` uma vez.
