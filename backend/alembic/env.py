@@ -1,21 +1,26 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import create_engine, pool
 
 from app import models  # noqa: F401  registra as tabelas no metadata
-from app.db import Base, engine
+from app.db import Base, sqlalchemy_url
 
 config = context.config
 
-if coinfg.config_file_name is not None:
+if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+# Migrations rodam com db_admin (unica role com DDL), nao com a app_api da API
+MIGRATION_DATABASE_URL = sqlalchemy_url(os.environ["MIGRATION_DATABASE_URL"])
+
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=engine.url.render_as_string(hide_password=False),
+        url=MIGRATION_DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
     )
@@ -24,6 +29,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    engine = create_engine(MIGRATION_DATABASE_URL, poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():

@@ -10,6 +10,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db/demo_app_api.sql:/demo_app_api.sql:ro
     command: postgres -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

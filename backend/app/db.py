@@ -5,7 +5,7 @@ from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
-def _sqlalchemy_url(url: str) -> str:
+def sqlalchemy_url(url: str) -> str:
     # DATABASE_URL vem como postgresql://, que no SQLAlchemy cai no psycopg2
     # O driver instalado e o psycopg 3.
     if url.startswith("postgresql://"):
@@ -13,7 +13,8 @@ def _sqlalchemy_url(url: str) -> str:
     return url
 
 
-DATABASE_URL = _sqlalchemy_url(os.environ["DATABASE_URL"])
+# Conexao da API: role app_api tem so DML, As migrations usam db_admin, ver alembic/env.py
+DATABASE_URL = sqlalchemy_url(os.environ["DATABASE_URL"])
 
 # Nomes de constraint deterministicos, para as migrations poderem referencia-los
 NAMING_CONVENTION = {
