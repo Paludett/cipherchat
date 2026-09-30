@@ -68,3 +68,18 @@ docker compose exec -e PGPASSWORD="$APP_API_PASSWORD" db \
 ```
 
 Volumes criados antes das roles precisam de `docker compose down -v`.
+
+## Senhas, TOTP e backup codes
+
+Tudo via pgcrypto, em `backend/app/security.py`:
+
+- Senha: `crypt(senha, gen_salt('bf', 12))`. Login compara `password_hash = crypt(senha_digitada, password_hash)`, nunca descriptografa.
+- `totp_secret`: `pgp_sym_encrypt` com a chave `TOTP_ENCRYPTION_KEY` (so vem do `.env`).
+- Backup codes: so o hash bcrypt fica no banco.
+
+Testes (com o `db` no ar):
+
+```bash
+docker compose up -d --wait db
+docker compose run --rm --no-deps backend pytest tests
+```
