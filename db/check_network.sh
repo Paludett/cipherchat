@@ -19,10 +19,10 @@ else
 fi
 
 echo "2) Do host, pela porta 5432"
-if nc -z -w 3 localhost 5432 2> /dev/null; then
-  falha "porta 5432 esta publicada no host"
+if docker port "$(docker compose ps -q db)" 5432 > /dev/null 2>&1; then
+  falha "porta 5432 do banco esta publicada no host"
 else
-  ok "conexao recusada (porta nao publicada)"
+  ok "porta 5432 do banco nao publicada no host"
 fi
 
 echo "3) De um container fora da rede do compose"

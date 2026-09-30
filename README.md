@@ -33,8 +33,9 @@ Para provar que o banco só é acessível pela rede interna (com o compose rodan
 ./db/check_network.sh
 ```
 
-Ele testa a conexão de dentro da rede do compose (aceita), do host na porta 5432
-(recusada) e de um container em outra rede docker (sem resposta).
+Ele testa a conexão de dentro da rede do compose (aceita), se a porta 5432 do banco
+está publicada no host (não deve estar) e a conexão de um container em outra rede
+docker (sem resposta).
 
 Os scripts de `db/init/` rodam apenas na primeira criação do volume. Para
 reaplicá-los, primeiro use `docker compose down -v`.
