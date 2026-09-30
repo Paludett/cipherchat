@@ -17,6 +17,8 @@ MIN_PASSWORD_LENGTH = 8
 BACKUP_CODES_COUNT = 10
 BACKUP_CODE_LENGTH = 10
 BACKUP_CODE_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+# bcrypt com o mesmo cost, usado so para gastar tempo no login de usuario inexistente
+DUMMY_HASH = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW"
 
 # Chave do pgp_sym_encrypt, so vem do ambiente
 TOTP_ENCRYPTION_KEY = os.environ["TOTP_ENCRYPTION_KEY"]
@@ -40,14 +42,19 @@ def create_user(db: Session, username: str, password: str) -> uuid.UUID:
 
 
 def check_password(db: Session, username: str, password: str) -> uuid.UUID | None:
+    user = db.execute(
+        text("SELECT id, password_hash FROM users WHERE username = :username"),
+        {"username": username},
+    ).first()
+    # Usuario inexistente compara com um hash dummy, assim o bcrypt roda nos dois
+    # Para os casos e o tempo de resposta nao revelarem se o usuario existe
+    stored_hash = user.password_hash if user else DUMMY_HASH
     # crypt(senha, hash) reaproveita o salt do hash gravado
-    return db.execute(
-        text(
-            "SELECT id FROM users "
-            "WHERE username = :username AND password_hash = crypt(:password, password_hash)"
-        ),
-        {"username": username, "password": password},
-    ).scalar_one_or_none()
+    matches = db.execute(
+        text("SELECT crypt(:password, :hash) = :hash"),
+        {"password": password, "hash": stored_hash},
+    ).scalar_one()
+    return user.id if user and matches else None
 
 
 def set_totp_secret(db: Session, user_id: uuid.UUID, secret: str) -> None:
