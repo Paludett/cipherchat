@@ -107,7 +107,7 @@ O servidor **nunca** vê chave privada, chave AES nem texto claro. Só armazena 
 
 - Algoritmo: **RSA-OAEP**, `modulusLength: 2048`, `publicExponent: 65537`, `hash: SHA-256`.
 - Gerado no primeiro login no navegador e reaproveitado nos seguintes.
-- Após o login o cliente compara o fingerprint local com o de `GET /users/me`. Sem chave local, ou fingerprint diferente (outro navegador), gera par novo e faz `PUT /keys/me` (substitui a anterior). `fingerprint = null` no servidor → faz o `PUT`.
+- Após o login o cliente compara o fingerprint local com o de `GET /users/me`. Sem chave local, gera par novo. Se o fingerprint local difere do servidor (outro navegador trocou a chave) ou é `null`, faz `PUT /keys/me` com a pública local (substitui a anterior). A privada local é mantida, então mensagens antigas desse navegador continuam legíveis.
 - Chave pública exportada como `spki` (DER) → **base64**. É isso que vai para o servidor (`PUT /keys/me`).
 - Chave privada fica no navegador (IndexedDB, por usuário, `extractable: false`). Nunca sai do cliente. Outro navegador = outra chave (limitação conhecida).
 
