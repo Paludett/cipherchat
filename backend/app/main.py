@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.errors import ApiError, api_error_handler, validation_error_handler
-from app.routes import auth
+from app.routes import admin, auth, users
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -24,6 +24,8 @@ app.add_middleware(
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
 app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")
