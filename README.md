@@ -27,6 +27,15 @@ docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db psql -U app -d e2ee_ch
 
 o `pg_hba.conf` exige senha até pelo socket local, por isso temos que usar o `PGPASSWORD`
 
+Para provar que o banco só é acessível pela rede interna (com o compose rodando):
+
+```bash
+./db/check_network.sh
+```
+
+Ele testa a conexão de dentro da rede do compose (aceita), do host na porta 5432
+(recusada) e de um container em outra rede docker (sem resposta).
+
 Os scripts de `db/init/` rodam apenas na primeira criação do volume. Para
 reaplicá-los, primeiro use `docker compose down -v`.
 
