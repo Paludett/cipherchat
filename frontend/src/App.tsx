@@ -1,21 +1,17 @@
-import { useEffect, useState } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+import { Route, Routes } from "react-router-dom";
+import RequireAuth from "./RequireAuth";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 export default function App() {
-  const [health, setHealth] = useState("...");
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`)
-      .then((r) => r.json())
-      .then((d) => setHealth(`api: ${d.api} / db: ${d.db}`))
-      .catch(() => setHealth("backend inacessivel"));
-  }, []);
-
   return (
-    <main style={{ fontFamily: "system-ui", padding: 32 }}>
-      <h1>E2EE Chat</h1>
-      <p>{health}</p>
-    </main>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route element={<RequireAuth />}>
+        <Route path="/" element={<Home />} />
+      </Route>
+    </Routes>
   );
 }

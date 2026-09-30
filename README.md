@@ -83,3 +83,13 @@ Testes (com o `db` no ar):
 docker compose up -d --wait db
 docker compose run --rm --no-deps backend pytest tests
 ```
+
+## Sessão no frontend
+
+O token de acesso fica só em memória (React context, `frontend/src/auth.tsx`). Trade-off:
+recarregar a página desloga o usuário (sem refresh token nesta versão), mas nenhum script
+injetado (XSS) consegue ler o token de `localStorage`/`sessionStorage`. O logout chama
+`POST /auth/logout` (revoga o `jti`) e descarta o token local.
+
+Ao adicionar dependência no frontend, rebuild: `docker compose up --build`
+(o `node_modules` do container fica em volume anônimo, use `docker compose down` se não atualizar).
