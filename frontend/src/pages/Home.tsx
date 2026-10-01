@@ -12,6 +12,7 @@ export default function Home() {
   const [me, setMe] = useState<Me | null>(null);
   const [myFingerprint, setMyFingerprint] = useState("");
   const [error, setError] = useState("");
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
   // Garante o par local e, se o servidor tem outra publica ou nenhuma, envia a local
   async function setupKeys(me: Me) {
@@ -37,10 +38,11 @@ export default function Home() {
       });
   }, []);
 
-  // Conecta no /ws só para aparecer online para os outros, JWT vai no subprotocolo e não na URL
+  // Conecta no /ws para aparecer online e trocar mensagens, JWT vai no subprotocolo e não na URL
   useEffect(() => {
-    const ws = new WebSocket(WS_URL, ["bearer", token!]);
-    return () => ws.close();
+    const socket = new WebSocket(WS_URL, ["bearer", token!]);
+    setWs(socket);
+    return () => socket.close();
   }, []);
 
   return (
@@ -53,7 +55,7 @@ export default function Home() {
           Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
         </p>
       )}
-      {me && <Contacts myId={me.id} />}
+      {me && ws && <Contacts myId={me.id} ws={ws} />}
       <button onClick={logout}>Sair</button>
     </main>
   );
