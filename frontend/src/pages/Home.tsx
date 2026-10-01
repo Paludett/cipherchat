@@ -13,16 +13,18 @@ export default function Home() {
   const [myFingerprint, setMyFingerprint] = useState("");
   const [error, setError] = useState("");
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
 
   // Garante o par local e, se o servidor tem outra publica ou nenhuma, envia a local
   async function setupKeys(me: Me) {
-    const { publicKey } = await getOrCreateKeyPair(me.id);
+    const { publicKey, privateKey } = await getOrCreateKeyPair(me.id);
     const spki = await crypto.subtle.exportKey("spki", publicKey);
     const fp = await fingerprint(spki);
     if (fp !== me.fingerprint) {
       await request("/keys/me", { method: "PUT", body: { public_key: toBase64(spki) }, token });
     }
     setMyFingerprint(fp);
+    setPrivateKey(privateKey);
   }
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function Home() {
           Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
         </p>
       )}
-      {me && ws && <Contacts myId={me.id} ws={ws} />}
+      {me && ws && privateKey && <Contacts myId={me.id} ws={ws} privateKey={privateKey} />}
       <button onClick={logout}>Sair</button>
     </main>
   );
