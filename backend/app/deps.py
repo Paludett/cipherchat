@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.errors import ApiError
-from app.models import User
-from app.tokens import JWT_ALGORITHM, JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET
+from app.models import RevokedToken, User
+from app.tokens import JWT_ALGORITHM, JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET, MFA_AUDIENCE
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -50,6 +50,32 @@ def get_current_user(
     if creds is None:
         raise nao_autenticado()
     return authenticate(db, creds.credentials)
+
+
+def get_mfa_pending(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> tuple[User, dict]:
+    if creds is None:
+        raise nao_autenticado()
+    try:
+        claims = jwt.decode(
+            creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+            audience=MFA_AUDIENCE, issuer=JWT_ISSUER,
+            options={"require": ["exp", "iss", "aud", "sub", "jti"]},
+        )
+        user_id = uuid.UUID(claims["sub"])
+        jti = uuid.UUID(claims["jti"])
+    except (jwt.InvalidTokenError, ValueError, TypeError):
+        raise nao_autenticado()
+    if claims.get("scope") != "mfa_pending":
+        raise nao_autenticado()
+    if db.get(RevokedToken, jti) is not None:
+        raise nao_autenticado()
+    user = db.get(User, user_id)
+    if user is None or not user.is_active or not user.totp_enabled:
+        raise nao_autenticado()
+    return user, claims
 
 
 def require_role(role: str):
