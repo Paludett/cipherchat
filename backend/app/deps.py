@@ -23,15 +23,11 @@ def nao_autenticado() -> ApiError:
     return ApiError(401, "unauthenticated", "Não autenticado.")
 
 
-def get_current_user(
-    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> User:
-    if creds is None:
-        raise nao_autenticado()
+def authenticate(db: Session, token: str) -> User:
+    """Valida o JWT de acesso e devolve o usuario. Usado pelo HTTP e pelo WebSocket"""
     try:
         claims = jwt.decode(
-            creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+            token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
             audience=JWT_AUDIENCE, issuer=JWT_ISSUER,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
@@ -45,6 +41,15 @@ def get_current_user(
     if user is None or not user.is_active:
         raise nao_autenticado()
     return user
+
+
+def get_current_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> User:
+    if creds is None:
+        raise nao_autenticado()
+    return authenticate(db, creds.credentials)
 
 
 def require_role(role: str):
