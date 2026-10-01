@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { ApiError, WS_URL, request } from "../api";
+import { ApiError, request } from "../api";
 import { useAuth } from "../auth";
-import Contacts from "../Contacts";
+import Chat from "../Chat";
 import { fingerprint, formatFingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
 import { friendlyError } from "../errors";
 
@@ -12,7 +12,6 @@ export default function Home() {
   const [me, setMe] = useState<Me | null>(null);
   const [myFingerprint, setMyFingerprint] = useState("");
   const [error, setError] = useState("");
-  const [ws, setWs] = useState<WebSocket | null>(null);
   const [privateKey, setPrivateKey] = useState<CryptoKey | null>(null);
 
   // Garante o par local e, se o servidor tem outra publica ou nenhuma, envia a local
@@ -40,25 +39,20 @@ export default function Home() {
       });
   }, []);
 
-  // Conecta no /ws para aparecer online e trocar mensagens, JWT vai no subprotocolo e não na URL
-  useEffect(() => {
-    const socket = new WebSocket(WS_URL, ["bearer", token!]);
-    setWs(socket);
-    return () => socket.close();
-  }, []);
-
   return (
-    <main className="card">
-      <h1>E2EE Chat</h1>
+    <main className="app">
+      <header>
+        <h1>E2EE Chat</h1>
+        {me && <span>Olá, {me.username}!</span>}
+        {myFingerprint && (
+          <span>
+            Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
+          </span>
+        )}
+        <button onClick={logout}>Sair</button>
+      </header>
       {error && <p className="error">{error}</p>}
-      {me && <p>Olá, {me.username}!</p>}
-      {myFingerprint && (
-        <p>
-          Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
-        </p>
-      )}
-      {me && ws && privateKey && <Contacts myId={me.id} ws={ws} privateKey={privateKey} />}
-      <button onClick={logout}>Sair</button>
+      {me && privateKey && <Chat myId={me.id} privateKey={privateKey} />}
     </main>
   );
 }

@@ -47,3 +47,152 @@ button:disabled {
   margin: 0;
   font-size: 14px;
 }
+
+/* Layout do chat: contatos | conversa | inspeção */
+.app {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.app header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.app header h1 {
+  margin-right: auto;
+}
+
+.chat {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+
+.contacts,
+.messages-pane,
+.inspect {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contacts ul,
+.messages {
+  list-style: none;
+  padding: 0;
+}
+
+.contacts button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+}
+
+.contacts button.selected {
+  background: #e5e7eb;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+}
+
+.dot.online {
+  background: #22c55e;
+}
+
+.badge {
+  margin-left: auto;
+  background: #22c55e;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.socket {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.conversation {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.messages-pane {
+  flex: 1;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.msg {
+  align-self: flex-start;
+  max-width: 70%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg.mine {
+  align-self: flex-end;
+  background: #dcf8c6;
+}
+
+.msg small {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+form.send {
+  flex-direction: row;
+}
+
+form.send input {
+  flex: 1;
+}
+
+.inspect {
+  width: 320px;
+  font-size: 13px;
+}
+
+.inspect code {
+  display: block;
+  word-break: break-all;
+}
+
+@media (max-width: 700px) {
+  .chat,
+  .conversation {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .inspect {
+    width: auto;
+  }
+}
