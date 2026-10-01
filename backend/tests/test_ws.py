@@ -1,17 +1,18 @@
 import hashlib
+import uuid
 
 import pytest
 from sqlalchemy import text
 from starlette.websockets import WebSocketDisconnect
 
 from app import tokens
+from app.ws import manager
 from tests.test_auth import client, db, novo_username, user  # noqa: F401 (fixtures)
 from tests.test_keys import b64, nova_chave, outro, put_chave  # noqa: F401 (fixtures)
 from tests.test_rbac import assert_401, forjar_token
 
 
 def conectar(token: str | None):
-    # O token vai em Sec-WebSocket-Protocol, "bearer, <token>", nunca na URL
     subprotocols = ["bearer", token] if token else []
     return client.websocket_connect("/ws", subprotocols=subprotocols)
 
@@ -116,3 +117,133 @@ def test_segunda_conexao_derruba_a_primeira_e_continua_online(user, outro):
             with pytest.raises(WebSocketDisconnect):
                 primeira.receive_text()
             assert [u["id"] for u in online_para(outro_id)] == [str(user_id)]
+
+
+# ---------- Mensagens ----------
+
+def envelope(to, **campos) -> dict:
+    return {
+        "type": "message",
+        "msg_id": str(uuid.uuid4()),
+        "to": str(to),
+        "encrypted_key": b64(b"k" * 256),
+        "iv": b64(b"i" * 12),
+        "ciphertext": b64(b"c" * 32),
+        "sent_at": "2026-09-27T14:03:00Z",
+        **campos,
+    }
+
+
+def assert_erro(ws, code: str, msg_id: str | None = None):
+    resposta = ws.receive_json()
+    assert resposta["type"] == "error"
+    assert resposta["error"]["code"] == code
+    if msg_id:
+        assert resposta["msg_id"] == msg_id
+
+
+def test_mensagem_entregue_com_from_do_token(user, outro):
+    _, user_id = user
+    _, outro_id = outro
+    with conectar(forjar_token(outro_id)) as destino, conectar(forjar_token(user_id)) as origem:
+        # from enviado pelo cliente e ignorado e sobrescrito com o sub do token
+        enviado = envelope(outro_id, **{"from": str(outro_id)})
+        origem.send_json(enviado)
+
+        assert destino.receive_json() == {**enviado, "from": str(user_id)}
+        assert origem.receive_json() == {"type": "sent", "msg_id": enviado["msg_id"]}
+
+
+def test_destinatario_offline_devolve_erro_offline(user, outro):
+    _, user_id = user
+    _, outro_id = outro
+    with conectar(forjar_token(user_id)) as origem:
+        enviado = envelope(outro_id)
+        origem.send_json(enviado)
+        assert_erro(origem, "offline", enviado["msg_id"])
+
+
+def test_destinatario_inexistente_tambem_e_offline(user):
+    # Nao diferencia "nao existe" de "offline", assim nao revela quais ids existem
+    _, user_id = user
+    with conectar(forjar_token(user_id)) as origem:
+        origem.send_json(envelope(uuid.uuid4()))
+        assert_erro(origem, "offline")
+
+
+@pytest.mark.parametrize(
+    "campos",
+    [
+        {"encrypted_key": "nao e base64!"},
+        {"encrypted_key": b64(b"k" * 255)},
+        {"iv": b64(b"i" * 11)},
+        {"iv": b64(b"i" * 13)},
+        {"ciphertext": b64(b"c" * 15)},
+        {"ciphertext": b64(b"c" * (64 * 1024 + 1))},
+        {"msg_id": "nao-e-uuid"},
+        {"sent_at": "x" * 100},
+        {"type": "outro"},
+        {"campo_extra": 1},
+    ],
+)
+def test_envelope_invalido_devolve_validation_error(user, outro, campos):
+    _, user_id = user
+    _, outro_id = outro
+    with conectar(forjar_token(outro_id)), conectar(forjar_token(user_id)) as origem:
+        origem.send_json(envelope(outro_id, **campos))
+        assert_erro(origem, "validation_error")
+
+
+def test_mensagem_para_si_mesmo_devolve_validation_error(user):
+    _, user_id = user
+    with conectar(forjar_token(user_id)) as origem:
+        origem.send_json(envelope(user_id))
+        assert_erro(origem, "validation_error")
+
+
+def test_json_invalido_devolve_erro_e_conexao_continua(user, outro):
+    _, user_id = user
+    _, outro_id = outro
+    with conectar(forjar_token(outro_id)) as destino, conectar(forjar_token(user_id)) as origem:
+        origem.send_text("isso nao e json")
+        assert_erro(origem, "validation_error")
+
+        enviado = envelope(outro_id)
+        origem.send_json(enviado)
+        assert destino.receive_json()["msg_id"] == enviado["msg_id"]
+
+
+def test_conteudo_cifrado_nao_vai_para_audit_log(user, outro, db):
+    _, user_id = user
+    _, outro_id = outro
+    enviado = envelope(outro_id, ciphertext=b64(b"segredo-cifrado" * 4))
+    with conectar(forjar_token(outro_id)) as destino, conectar(forjar_token(user_id)) as origem:
+        origem.send_json(enviado)
+        destino.receive_json()
+
+    detalhes = db.execute(text("SELECT coalesce(details::text, '') FROM audit_log")).scalars()
+    for d in detalhes:
+        for campo in ("encrypted_key", "iv", "ciphertext"):
+            assert enviado[campo] not in d
+
+
+def test_destinatario_que_cai_durante_envio_vira_offline_sem_derrubar_remetente(user, outro):
+    _, user_id = user
+    _, outro_id = outro
+
+    class ConexaoFechada:
+        async def send_json(self, _):
+            raise RuntimeError("Cannot call send once a close message has been sent")
+
+    with conectar(forjar_token(user_id)) as origem:
+        manager.active[outro_id] = ConexaoFechada()
+        try:
+            enviado = envelope(outro_id)
+            origem.send_json(enviado)
+            assert_erro(origem, "offline", enviado["msg_id"])
+
+            # Conexao do remetente continua viva
+            origem.send_json(envelope(outro_id))
+            assert_erro(origem, "offline")
+        finally:
+            manager.active.pop(outro_id, None)
