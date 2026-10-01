@@ -1,3 +1,4 @@
+import pyotp
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -5,9 +6,19 @@ from sqlalchemy.orm import Session
 from app import security
 from app.audit import log_event
 from app.db import get_db
+from app.deps import get_current_user
 from app.errors import ApiError
 from app.models import User
-from app.schemas import LoginMfaOut, LoginOut, LoginRequest, UserCreate, UserOut
+from app.schemas import (
+    BackupCodesOut,
+    LoginMfaOut,
+    LoginOut,
+    LoginRequest,
+    MfaCodeRequest,
+    MfaSetupOut,
+    UserCreate,
+    UserOut,
+)
 from app.tokens import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     MFA_TOKEN_EXPIRE_MINUTES,
@@ -65,3 +76,47 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         access_token=create_access_token(user),
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
+
+@router.post("/mfa/setup", response_model=MfaSetupOut)
+def mfa_setup(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+
+    if user.totp_enabled:
+        raise ApiError(409, "mfa_already_enabled", "MFA já está ativo.")
+
+    secret = pyotp.random_base32()
+    security.set_totp_secret(db, user.id, secret)
+    db.commit()
+    log_event(db, "mfa_setup", ip, actor=user.id)
+
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user.username, issuer_name=security.TOTP_ISSUER)
+    return MfaSetupOut(secret=secret, otpauth_uri=uri)
+
+
+@router.post("/mfa/activate", response_model=BackupCodesOut)
+def mfa_activate(
+    body: MfaCodeRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+    secret = security.get_totp_secret(db, user.id)
+
+    if user.totp_enabled or secret is None:
+        raise ApiError(409, "mfa_not_pending", "Nenhum MFA aguardando ativação.")
+
+    if not pyotp.TOTP(secret).verify(body.code, valid_window=1):
+        log_event(db, "mfa_activate_failed", ip, actor=user.id)
+        raise ApiError(401, "invalid_mfa_code", "Código inválido.")
+
+    user.totp_enabled = True
+    codes = security.create_backup_codes(db, user.id)
+    db.commit()
+    log_event(db, "mfa_activated", ip, actor=user.id)
+    return BackupCodesOut(backup_codes=codes)

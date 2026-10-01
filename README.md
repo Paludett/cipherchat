@@ -121,7 +121,8 @@ Ao adicionar dependência no frontend, rebuild: `docker compose up --build`
 Eventos:
 
 - `log_event()` (`app/audit.py`) grava na tabela `audit_log` **e** no arquivo: `login_success`,
-  `login_failed`, `login_mfa_pending`, `key_changed`, `ws_connect`, `ws_disconnect`.
+  `login_failed`, `login_mfa_pending`, `mfa_setup`, `mfa_activate_failed`, `mfa_activated`,
+  `key_changed`, `ws_connect`, `ws_disconnect`.
 - `message_routed` (só arquivo): `actor` = remetente, `target` = destinatário, `msg_id` e
   `status` (`delivered`, `offline` ou `invalid`).
 - `http_request` (middleware em `app/main.py`, toda requisição HTTP):
