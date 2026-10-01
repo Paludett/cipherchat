@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ApiError, request } from "../api";
+import { ApiError, WS_URL, request } from "../api";
 import { useAuth } from "../auth";
-import { fingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
+import Contacts from "../Contacts";
+import { fingerprint, formatFingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
 import { friendlyError } from "../errors";
 
 type Me = { id: string; username: string; role: string; fingerprint: string | null };
@@ -36,6 +37,12 @@ export default function Home() {
       });
   }, []);
 
+  // Conecta no /ws só para aparecer online para os outros, JWT vai no subprotocolo e não na URL
+  useEffect(() => {
+    const ws = new WebSocket(WS_URL, ["bearer", token!]);
+    return () => ws.close();
+  }, []);
+
   return (
     <main className="card">
       <h1>E2EE Chat</h1>
@@ -43,9 +50,10 @@ export default function Home() {
       {me && <p>Olá, {me.username}!</p>}
       {myFingerprint && (
         <p>
-          Sua chave: <code>{myFingerprint.match(/.{4}/g)!.join(" ")}</code>
+          Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
         </p>
       )}
+      {me && <Contacts myId={me.id} />}
       <button onClick={logout}>Sair</button>
     </main>
   );
