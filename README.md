@@ -142,3 +142,19 @@ privada, segredo TOTP, backup codes, e o conteúdo cifrado das mensagens (`encry
 `iv`, `ciphertext`). Por isso o middleware não registra headers nem query string. Os testes
 em `backend/tests/test_logging.py` checam que senha, token e conteúdo cifrado não aparecem
 nas linhas.
+
+### Triggers
+
+Mudanças em `users` e `public_keys` são auditadas pelo próprio banco (migration `0004`), sem
+depender da aplicação lembrar de logar:
+
+- `INSERT`/`UPDATE`/`DELETE` disparam `audit_trigger()`, que grava na `audit_log` com
+  `action` = `<tabela>_<operação>` (ex.: `users_update`), `target_id` = id da linha e
+  `details = {"old": ..., "new": ..., "db_user": ...}` (`db_user` = role que conectou).
+- `password_hash` e `totp_secret` são removidos antes de gravar.
+- A função é `SECURITY DEFINER` (roda como `db_admin`) com `search_path` fixo.
+- `actor` fica nulo: o banco não sabe qual usuário da app fez a mudança.
+- A `app_api` só tem `SELECT`/`INSERT` na `audit_log`, então não consegue editar nem apagar
+  o que o trigger gravou (append-only).
+
+Testes em `backend/tests/test_audit_triggers.py`.
