@@ -55,3 +55,27 @@ export function fromBase64(b64: string): ArrayBuffer {
 export function formatFingerprint(fp: string): string {
   return fp.match(/.{4}/g)!.join(" ");
 }
+
+export function importPublicKey(spki: ArrayBuffer): Promise<CryptoKey> {
+  return crypto.subtle.importKey("spki", spki, RSA, false, ["encrypt"]);
+}
+
+export async function encryptMessage(publicKey: CryptoKey, text: string, aad: string) {
+  const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: encoder.encode(aad) },
+    aesKey,
+    encoder.encode(text),
+  );
+  const rawKey = await crypto.subtle.exportKey("raw", aesKey);
+  const encryptedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, rawKey);
+
+  return {
+    encrypted_key: toBase64(encryptedKey),
+    iv: toBase64(iv.buffer),
+    ciphertext: toBase64(ciphertext),
+  };
+}
