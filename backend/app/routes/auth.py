@@ -1,3 +1,6 @@
+import uuid
+from datetime import datetime, timezone
+
 import pyotp
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.exc import IntegrityError
@@ -6,16 +9,18 @@ from sqlalchemy.orm import Session
 from app import security
 from app.audit import log_event
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_mfa_pending, nao_autenticado
 from app.errors import ApiError
-from app.models import User
+from app.models import RevokedToken, User
 from app.schemas import (
     BackupCodesOut,
     LoginMfaOut,
     LoginOut,
     LoginRequest,
     MfaCodeRequest,
+    MfaRecoverRequest,
     MfaSetupOut,
+    TokenOut,
     UserCreate,
     UserOut,
 )
@@ -120,3 +125,56 @@ def mfa_activate(
     db.commit()
     log_event(db, "mfa_activated", ip, actor=user.id)
     return BackupCodesOut(backup_codes=codes)
+
+
+def _finish_mfa_login(db: Session, user: User, claims: dict, ip: str | None, action: str) -> TokenOut:
+    db.add(RevokedToken(
+        jti=uuid.UUID(claims["jti"]),
+        expires_at=datetime.fromtimestamp(claims["exp"], timezone.utc),
+    ))
+    try:
+        db.commit()
+    except IntegrityError: 
+        db.rollback()
+        raise nao_autenticado()
+    log_event(db, action, ip, actor=user.id)
+    return TokenOut(
+        access_token=create_access_token(user),
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+@router.post("/mfa/verify", response_model=TokenOut)
+def mfa_verify(
+    body: MfaCodeRequest,
+    request: Request,
+    pending: tuple[User, dict] = Depends(get_mfa_pending),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+    user, claims = pending
+    secret = security.get_totp_secret(db, user.id)
+
+    if not pyotp.TOTP(secret).verify(body.code, valid_window=1):
+        log_event(db, "mfa_verify_failed", ip, actor=user.id, details={"reason": "invalid_code"})
+        raise ApiError(401, "invalid_mfa_code", "Código inválido.")
+
+    return _finish_mfa_login(db, user, claims, ip, "mfa_verified")
+
+
+@router.post("/mfa/recover", response_model=TokenOut)
+def mfa_recover(
+    body: MfaRecoverRequest,
+    request: Request,
+    pending: tuple[User, dict] = Depends(get_mfa_pending),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+    user, claims = pending
+
+    if not security.use_backup_code(db, user.id, body.backup_code):
+        log_event(db, "mfa_recover_failed", ip, actor=user.id, details={"reason": "invalid_backup_code"})
+        raise ApiError(401, "invalid_mfa_code", "Código inválido.")
+    user.totp_enabled = False
+    user.totp_secret = None
+    return _finish_mfa_login(db, user, claims, ip, "mfa_recovered")
