@@ -1,17 +1,16 @@
 """
 WebSocket /ws e registro de quem esta online
-
-O JWT viaja em Sec-WebSocket-Protocol ("bearer, <token>")
-assim o token nao aparece na URL, nem nos logs de acesso do uvicorn
 """
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 
 from app.audit import log_event
 from app.db import SessionLocal
 from app.deps import authenticate
 from app.errors import ApiError
+from app.schemas import MessageIn
 
 router = APIRouter()
 
@@ -29,7 +28,6 @@ class ConnectionManager:
             await antiga.close()
 
     def disconnect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
-        # So remove se ainda for esta conexao, a antiga nao apaga a nova
         if self.active.get(user_id) is ws:
             del self.active[user_id]
 
@@ -62,10 +60,35 @@ def registrar(action: str, ws: WebSocket, user_id: uuid.UUID) -> None:
         log_event(db, action, ws.client.host, actor=user_id)
 
 
+async def enviar_erro(ws: WebSocket, code: str, message: str, msg_id: uuid.UUID | None = None) -> None:
+    erro = {"type": "error", "error": {"code": code, "message": message}}
+    if msg_id:
+        erro["msg_id"] = str(msg_id)
+    await ws.send_json(erro)
+
+
+async def repassar_mensagem(ws: WebSocket, remetente: uuid.UUID, texto: str) -> None:
+    try:
+        envelope = MessageIn.model_validate_json(texto)
+    except ValidationError:
+        await enviar_erro(ws, "validation_error", "Envelope inválido.")
+        return
+    if envelope.to == remetente:
+        await enviar_erro(ws, "validation_error", "Destinatário inválido.", envelope.msg_id)
+        return
+
+    try:
+        destino = manager.active[envelope.to]
+        await destino.send_json({**envelope.model_dump(mode="json"), "from": str(remetente)})
+    except (KeyError, WebSocketDisconnect, RuntimeError):
+        await enviar_erro(ws, "offline", "Destinatário offline.", envelope.msg_id)
+        return
+    await ws.send_json({"type": "sent", "msg_id": str(envelope.msg_id)})
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     token = token_do_handshake(ws)
-    # O accept vem antes do close, pois fechar antes vira 403 HTTP e o navegador veria 1006, nao 1008
     await ws.accept(subprotocol="bearer" if token else None)
     user_id = autenticar(token)
     if user_id is None:
@@ -76,9 +99,8 @@ async def websocket_endpoint(ws: WebSocket):
     registrar("ws_connect", ws, user_id)
     try:
         while True:
-            await ws.receive_text()
+            await repassar_mensagem(ws, user_id, await ws.receive_text())
     except (WebSocketDisconnect, RuntimeError):
-        # RuntimeError, o servidor fechou esta conexao ao aceitar uma mais nova do mesmo usuario
         pass
     finally:
         manager.disconnect(user_id, ws)

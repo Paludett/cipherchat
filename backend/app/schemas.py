@@ -1,15 +1,16 @@
 """
-Schemas de entrada e saida da API, separados dos models ORM (Mass Assignment)
+Schemas de entrada e saida da API, separados dos models ORM
 
 Entrada: extra="forbid", campo nao previsto (ex.: role no registro) é rejeitado
 Saida: so os campos declarados aqui saem na resposta, password_hash e totp_secret
 nao existem em nenhum schema de saida
 """
+import base64
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 # Tipos com tamanho maximo, reaproveitados pelos schemas de entrada
 Username = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_]{3,32}$")]
@@ -21,6 +22,15 @@ BackupCode = Annotated[str, Field(pattern=r"^[a-z0-9]{5}-?[a-z0-9]{5}$")]
 # SPKI RSA-2048 em base64 tem ~392 chars
 PublicKeyBase64 = Annotated[str, Field(max_length=1024)]
 Role = Literal["user", "admin"]
+
+
+def base64_de(min_bytes: int, max_bytes: int):
+    def validar(valor: str) -> str:
+        if not min_bytes <= len(base64.b64decode(valor, validate=True)) <= max_bytes:
+            raise ValueError("tamanho invalido")
+        return valor
+
+    return Annotated[str, Field(max_length=4 * ((max_bytes + 2) // 3)), AfterValidator(validar)]
 
 
 class Entrada(BaseModel):
@@ -55,6 +65,17 @@ class MfaRecoverRequest(Entrada):
 
 class PublicKeyUpdate(Entrada):
     public_key: PublicKeyBase64
+
+
+class MessageIn(Entrada):
+    type: Literal["message"]
+    msg_id: uuid.UUID
+    to: uuid.UUID
+    from_: Any = Field(default=None, alias="from", exclude=True)
+    encrypted_key: base64_de(256, 256)
+    iv: base64_de(12, 12)
+    ciphertext: base64_de(16, 64 * 1024)
+    sent_at: Annotated[str, Field(max_length=40)]
 
 
 class AdminUserUpdate(Entrada):

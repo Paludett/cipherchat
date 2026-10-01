@@ -284,8 +284,7 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
 | `code` | Quando |
 |--------|--------|
 | `validation_error` | envelope malformado, base64 inválido, tamanhos fora da regra, `to` igual ao próprio usuário |
-| `recipient_not_found` | `to` não existe |
-| `offline` | destinatário não está conectado (mensagem **não** é guardada) |
+| `offline` | destinatário não está conectado ou não existe (não diferencia, para não revelar quais ids existem). Mensagem **não** é guardada |
 | `rate_limited` | mais de 20 mensagens/s por conexão. Reincidência → fecha com **1008** |
 
 ### 6.3 Entrega
