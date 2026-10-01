@@ -60,7 +60,9 @@ export function importPublicKey(spki: ArrayBuffer): Promise<CryptoKey> {
   return crypto.subtle.importKey("spki", spki, RSA, false, ["encrypt"]);
 }
 
-export async function encryptMessage(publicKey: CryptoKey, text: string, aad: string) {
+export type Envelope = { encrypted_key: string; iv: string; ciphertext: string };
+
+export async function encryptMessage(publicKey: CryptoKey, text: string, aad: string): Promise<Envelope> {
   const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoder = new TextEncoder();
@@ -78,4 +80,19 @@ export async function encryptMessage(publicKey: CryptoKey, text: string, aad: st
     iv: toBase64(iv.buffer),
     ciphertext: toBase64(ciphertext),
   };
+}
+
+export async function decryptMessage(privateKey: CryptoKey, envelope: Envelope, aad: string): Promise<string | null> {
+  try {
+    const rawKey = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, fromBase64(envelope.encrypted_key));
+    const aesKey = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["decrypt"]);
+    const plaintext = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: fromBase64(envelope.iv), additionalData: new TextEncoder().encode(aad) },
+      aesKey,
+      fromBase64(envelope.ciphertext),
+    );
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    return null;
+  }
 }

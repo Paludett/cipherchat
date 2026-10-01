@@ -1,19 +1,28 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ApiError, request } from "./api";
 import { useAuth } from "./auth";
-import { encryptMessage, fingerprint, formatFingerprint, fromBase64, importPublicKey } from "./crypto";
+import { decryptMessage, encryptMessage, Envelope, fingerprint, formatFingerprint, fromBase64, importPublicKey } from "./crypto";
 import { friendlyError } from "./errors";
 
 type Contact = { id: string; username: string };
 type Chat = { contact: Contact; publicKey: CryptoKey; fingerprint: string; changed: boolean };
-type Msg = { id: string; text: string; status: "enviando" | "enviada" | "falhou" };
+type Msg = { id: string; text: string; status: "enviando" | "enviada" | "falhou" | "recebida" | "invalida" };
+type Incoming = Envelope & { msg_id: string; from: string; sent_at: string };
 
-const STATUS_LABEL = { enviando: "enviando...", enviada: "enviada", falhou: "não entregue" };
+const STATUS_LABEL = {
+  enviando: "enviando...",
+  enviada: "enviada",
+  falhou: "não entregue",
+  recebida: "recebida",
+  invalida: "adulterada ou ilegível",
+};
 
 // polling a cada 5s, troca pelo evento presence do /ws quando o backend enviar
 const POLL_MS = 5000;
 
-export default function Contacts({ myId, ws }: { myId: string; ws: WebSocket }) {
+type Props = { myId: string; ws: WebSocket; privateKey: CryptoKey };
+
+export default function Contacts({ myId, ws, privateKey }: Props) {
   const { token, logout } = useAuth();
   const [online, setOnline] = useState<Contact[]>([]);
   const [chat, setChat] = useState<Chat | null>(null);
@@ -42,20 +51,32 @@ export default function Contacts({ myId, ws }: { myId: string; ws: WebSocket }) 
       const data = JSON.parse(e.data);
       if (data.type === "sent") setStatus(data.msg_id, "enviada");
       if (data.type === "error" && data.msg_id) setStatus(data.msg_id, "falhou");
+      if (data.type === "message") receive(data);
     }
     ws.addEventListener("message", onMessage);
     return () => ws.removeEventListener("message", onMessage);
-  }, [ws]);
+  }, [ws, chat]);
+
+  async function receive(data: Incoming) {
+    if (chat?.contact.id !== data.from) await openChat(data.from);
+    const aad = `${data.msg_id}|${data.from}|${myId}|${data.sent_at}`;
+    const text = await decryptMessage(privateKey, data, aad);
+    const msg: Msg = text === null
+      ? { id: data.msg_id, text: "mensagem inválida", status: "invalida" }
+      : { id: data.msg_id, text, status: "recebida" };
+    setMessages((msgs) => (msgs.some((m) => m.id === msg.id) ? msgs : [...msgs, msg]));
+  }
 
   // Último fingerprint confiado, para avisar se a chave mudou
   const cacheKey = (contactId: string) => `fingerprint:${myId}:${contactId}`;
 
-  async function openChat(contact: Contact) {
+  async function openChat(contactId: string) {
     setError("");
     setChat(null);
     setMessages([]);
     try {
-      const key = await request<{ public_key: string }>(`/keys/${contact.id}`, { token });
+      const key = await request<{ public_key: string; username: string }>(`/keys/${contactId}`, { token });
+      const contact = { id: contactId, username: key.username };
       const spki = fromBase64(key.public_key);
       const fp = await fingerprint(spki);
       const publicKey = await importPublicKey(spki);
@@ -63,7 +84,7 @@ export default function Contacts({ myId, ws }: { myId: string; ws: WebSocket }) 
       if (trusted === null) localStorage.setItem(cacheKey(contact.id), fp); 
       setChat({ contact, publicKey, fingerprint: fp, changed: trusted !== null && trusted !== fp });
     } catch (err) {
-      if (err instanceof ApiError && err.code === "not_found") setError(`${contact.username} ainda não publicou uma chave.`);
+      if (err instanceof ApiError && err.code === "not_found") setError("Esse contato ainda não publicou uma chave.");
       else handleError(err);
     }
   }
@@ -99,7 +120,7 @@ export default function Contacts({ myId, ws }: { myId: string; ws: WebSocket }) 
       <ul>
         {online.map((c) => (
           <li key={c.id}>
-            <button onClick={() => openChat(c)}>{c.username}</button>
+            <button onClick={() => openChat(c.id)}>{c.username}</button>
           </li>
         ))}
       </ul>
