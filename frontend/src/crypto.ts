@@ -47,3 +47,11 @@ export async function fingerprint(spki: ArrayBuffer): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", spki);
   return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+export function fromBase64(b64: string): ArrayBuffer {
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer;
+}
+
+export function formatFingerprint(fp: string): string {
+  return fp.match(/.{4}/g)!.join(" ");
+}
