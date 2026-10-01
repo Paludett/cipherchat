@@ -10,6 +10,7 @@ from app.audit import log_event
 from app.db import SessionLocal
 from app.deps import authenticate
 from app.errors import ApiError
+from app.logger import logger
 from app.schemas import MessageIn
 
 router = APIRouter()
@@ -60,6 +61,16 @@ def registrar(action: str, ws: WebSocket, user_id: uuid.UUID) -> None:
         log_event(db, action, ws.client.host, actor=user_id)
 
 
+def registrar_mensagem(remetente: uuid.UUID, status: str, envelope: MessageIn | None = None) -> None:
+    # So metadados, nunca encrypted_key, iv ou ciphertext
+    logger.info("message_routed", extra={
+        "actor": remetente,
+        "target": envelope.to if envelope else None,
+        "msg_id": envelope.msg_id if envelope else None,
+        "status": status,
+    })
+
+
 async def enviar_erro(ws: WebSocket, code: str, message: str, msg_id: uuid.UUID | None = None) -> None:
     erro = {"type": "error", "error": {"code": code, "message": message}}
     if msg_id:
@@ -71,9 +82,11 @@ async def repassar_mensagem(ws: WebSocket, remetente: uuid.UUID, texto: str) -> 
     try:
         envelope = MessageIn.model_validate_json(texto)
     except ValidationError:
+        registrar_mensagem(remetente, "invalid")
         await enviar_erro(ws, "validation_error", "Envelope inválido.")
         return
     if envelope.to == remetente:
+        registrar_mensagem(remetente, "invalid", envelope)
         await enviar_erro(ws, "validation_error", "Destinatário inválido.", envelope.msg_id)
         return
 
@@ -81,8 +94,10 @@ async def repassar_mensagem(ws: WebSocket, remetente: uuid.UUID, texto: str) -> 
         destino = manager.active[envelope.to]
         await destino.send_json({**envelope.model_dump(mode="json"), "from": str(remetente)})
     except (KeyError, WebSocketDisconnect, RuntimeError):
+        registrar_mensagem(remetente, "offline", envelope)
         await enviar_erro(ws, "offline", "Destinatário offline.", envelope.msg_id)
         return
+    registrar_mensagem(remetente, "delivered", envelope)
     await ws.send_json({"type": "sent", "msg_id": str(envelope.msg_id)})
 
 
