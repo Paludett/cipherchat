@@ -98,7 +98,8 @@ def test_backup_code_e_de_uso_unico(db, user):
 def test_backup_code_ignora_hifen(db, user):
     _, user_id = user
     code = security.create_backup_codes(db, user_id)[0]
-    assert security.use_backup_code(db, user_id, f"{code[:5]}-{code[5:]}") is True
+    assert code[5] == "-"
+    assert security.use_backup_code(db, user_id, code.replace("-", "")) is True
 
 
 def test_backup_code_invalido(db, user):

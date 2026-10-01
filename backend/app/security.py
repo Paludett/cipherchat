@@ -17,6 +17,8 @@ MIN_PASSWORD_LENGTH = 8
 BACKUP_CODES_COUNT = 10
 BACKUP_CODE_LENGTH = 10
 BACKUP_CODE_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+# Nome que aparece no app autenticador (Google Authenticator/Authy)
+TOTP_ISSUER = "ChatSeguro"
 # bcrypt com o mesmo cost, usado so para gastar tempo no login de usuario inexistente
 DUMMY_HASH = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW"
 
@@ -73,6 +75,8 @@ def get_totp_secret(db: Session, user_id: uuid.UUID) -> str | None:
 
 def create_backup_codes(db: Session, user_id: uuid.UUID) -> list[str]:
     """Grava so o hash bcrypt. Os codigos em texto claro sao devolvidos uma unica vez."""
+    # Ao reativar o MFA so os codigos novos valem
+    db.execute(text("DELETE FROM backup_codes WHERE user_id = :user_id"), {"user_id": user_id})
     codes = [
         "".join(secrets.choice(BACKUP_CODE_ALPHABET) for _ in range(BACKUP_CODE_LENGTH))
         for _ in range(BACKUP_CODES_COUNT)
@@ -85,7 +89,8 @@ def create_backup_codes(db: Session, user_id: uuid.UUID) -> list[str]:
             ),
             {"user_id": user_id, "code": code, "cost": BCRYPT_COST},
         )
-    return codes
+    # Exibido como xxxxx-xxxxx, o hash e do codigo sem hifen
+    return [f"{code[:5]}-{code[5:]}" for code in codes]
 
 
 def use_backup_code(db: Session, user_id: uuid.UUID, code: str) -> bool:
