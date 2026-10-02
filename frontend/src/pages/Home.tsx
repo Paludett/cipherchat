@@ -50,6 +50,7 @@ export default function Home() {
             Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
           </span>
         )}
+        {me?.role === "admin" && <Link to="/admin">Admin</Link>}
         {me && !me.mfa_enabled && <Link to="/mfa/setup">Ativar MFA</Link>}
         <button onClick={logout}>Sair</button>
       </header>
