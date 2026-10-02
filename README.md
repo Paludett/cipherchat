@@ -37,6 +37,17 @@ Ele testa a conexão de dentro da rede do compose (aceita), se a porta 5432 do b
 está publicada no host (não deve estar) e a conexão de um container em outra rede
 docker (sem resposta).
 
+### Admin inicial
+
+O `/auth/register` sempre cria `role = user`. O primeiro admin vem do script de seed, que
+lê `ADMIN_USERNAME` e `ADMIN_PASSWORD` do `.env` (com o compose rodando):
+
+```bash
+docker compose exec backend python -m app.seed
+```
+
+Rodar de novo não muda nada. Os outros admins são promovidos por ele em `PATCH /admin/users/{id}`.
+
 Os scripts de `db/init/` rodam apenas na primeira criação do volume. Para
 reaplicá-los, primeiro use `docker compose down -v`.
 
@@ -172,7 +183,10 @@ Eventos:
 
 - `log_event()` (`app/audit.py`) grava na tabela `audit_log` **e** no arquivo: `login_success`,
   `login_failed`, `login_mfa_pending`, `mfa_setup`, `mfa_activate_failed`, `mfa_activated`,
-  `mfa_verified`, `mfa_verify_failed`, `mfa_recovered`, `mfa_recover_failed`, `key_changed`, `ws_connect`, `ws_disconnect`.
+  `mfa_verified`, `mfa_verify_failed`, `mfa_recovered`, `mfa_recover_failed`, `key_changed`, `ws_connect`, `ws_disconnect`,
+  `admin_user_updated` (`details`: `target` e `changes`), `admin_user_deleted` (`target` e `username`)
+  e `admin_modify_self_denied`. Nas ações admin o `actor` é o admin; o trigger de `users`
+  guarda o antes/depois da linha.
 - `rate_limited` (só arquivo, `WARNING`): todo 429 no HTTP e todo excesso no WebSocket,
   com `ip`, `endpoint` e, no WebSocket, `actor`. Não vai para a `audit_log` para um ataque
   não virar um INSERT por requisição bloqueada.
