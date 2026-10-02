@@ -128,6 +128,14 @@ docker compose up -d --wait db
 docker compose run --rm --no-deps backend pytest tests
 ```
 
+Suíte de ataques (SQLi, BOLA, Mass Assignment, JWT, rate limit, MFA, RBAC) em
+`backend/tests/test_ataques.py`. Os casos da apresentação levam `@pytest.mark.apresentacao`:
+
+```bash
+docker compose run --rm --no-deps backend pytest tests/test_ataques.py     # todos
+docker compose run --rm --no-deps backend pytest -m apresentacao -v        # so os da apresentacao
+```
+
 ## Sessão no frontend
 
 O token de acesso fica só em memória (React context, `frontend/src/auth.tsx`). Trade-off:
