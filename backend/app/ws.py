@@ -38,6 +38,11 @@ class ConnectionManager:
     def online_ids(self) -> list[uuid.UUID]:
         return list(self.active)
 
+    async def derrubar(self, user_id: uuid.UUID) -> None:
+        ws = self.active.get(user_id)
+        if ws is not None:
+            await ws.close(code=1008, reason="account_disabled")
+
 
 manager = ConnectionManager()
 

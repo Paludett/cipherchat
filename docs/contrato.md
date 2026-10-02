@@ -198,7 +198,9 @@ Regras:
 - `/auth/mfa/activate` verifica o 1º código (prova de posse), liga `totp_enabled=true` e devolve **10 backup codes uma única vez**. No banco só o hash bcrypt.
 - `/auth/mfa/recover`: backup code de uso único. Sucesso emite o JWT final e **desliga o MFA** (`totp_enabled=false`); o usuário precisa refazer setup + activate.
 - TOTP: RFC 6238, SHA-1, 6 dígitos, período 30 s, `valid_window=1`. O mesmo código não é aceito duas vezes.
-- `PATCH /admin/users/{id}`: só aceita `is_active` e `role` (`user` \| `admin`). Desativar derruba o WebSocket ativo do usuário.
+- `PATCH /admin/users/{id}`: só aceita `is_active` e `role` (`user` \| `admin`); campo `null` é ignorado. Desativar derruba o WebSocket ativo do usuário (**1008**, reason `account_disabled`).
+- `DELETE /admin/users/{id}`: remove o usuário de vez (chave pública e backup codes vão junto; a `audit_log` fica) e derruba o WebSocket dele.
+- Admin não altera nem remove a si mesmo (`403 cannot_modify_self`), então sempre sobra pelo menos um admin.
 - `/users/*` e `/keys/*` nunca devolvem `password_hash`, `totp_secret` nem `role` de outros.
 - Todos os eventos de login, MFA, logout, troca de chave e ações admin são auditados.
 
@@ -259,6 +261,7 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
    - Falha, timeout ou qualquer outra mensagem antes do `auth` → `{ "type": "error", "error": {"code": "unauthenticated", ...} }` e fecha com **1008**.
 4. Token expira com a conexão aberta → servidor fecha com **1008**; cliente refaz login e reconecta.
 5. Nova conexão de usuário que já está conectado → recusada com **1008**, reason `already_connected` (a conexão já aberta continua). Servidor em `MAX_WS_TOTAL` conexões → **1008**, reason `server_full`. Nos dois casos o cliente tenta de novo em vez de deslogar.
+6. Admin desativa ou remove o usuário → servidor fecha com **1008**, reason `account_disabled`; o cliente desloga.
 
 ### 6.2 Eventos
 
