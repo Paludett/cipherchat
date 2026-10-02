@@ -9,3 +9,4 @@ PyJWT==2.10.1
 cryptography==50.0.2
 httpx==0.28.1
 pyotp==2.9.0
+slowapi==0.1.9

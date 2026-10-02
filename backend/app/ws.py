@@ -2,6 +2,7 @@
 WebSocket /ws e registro de quem esta online
 """
 import uuid
+from time import monotonic
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ from app.db import SessionLocal
 from app.deps import authenticate
 from app.errors import ApiError
 from app.logger import logger
+from app.ratelimit import WS_MSGS_POR_SEGUNDO
 from app.schemas import MessageIn
 
 router = APIRouter()
@@ -37,6 +39,19 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+class LimiteMensagens:
+    def __init__(self) -> None:
+        self.segundo = 0
+        self.contagem = 0
+
+    def permite(self) -> bool:
+        agora = int(monotonic())
+        if agora != self.segundo:
+            self.segundo, self.contagem = agora, 0
+        self.contagem += 1
+        return self.contagem <= WS_MSGS_POR_SEGUNDO
 
 
 def token_do_handshake(ws: WebSocket) -> str | None:
@@ -112,9 +127,21 @@ async def websocket_endpoint(ws: WebSocket):
 
     await manager.connect(user_id, ws)
     registrar("ws_connect", ws, user_id)
+    limite = LimiteMensagens()
+    ja_avisado = False
     try:
         while True:
-            await repassar_mensagem(ws, user_id, await ws.receive_text())
+            texto = await ws.receive_text()
+            if limite.permite():
+                await repassar_mensagem(ws, user_id, texto)
+                continue
+
+            logger.warning("rate_limited", extra={"actor": user_id, "ip": ws.client.host, "endpoint": "WS /ws"})
+            if ja_avisado:
+                await ws.close(code=1008, reason="rate_limited")
+                break
+            ja_avisado = True
+            await enviar_erro(ws, "rate_limited", "Muitas mensagens. Aguarde um momento.")
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:

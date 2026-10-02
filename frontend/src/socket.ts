@@ -4,7 +4,7 @@ import { useAuth } from "./auth";
 
 const RETRY_MS = 2000;
 const REPLACED = 1000; // servidor fecha a conexão antiga quando o mesmo usuário conecta de novo
-const UNAUTHORIZED = 1008;
+const UNAUTHORIZED = 1008; 
 
 export type SocketStatus = "conectando" | "conectado" | "reconectando" | "aberto em outra aba";
 
@@ -34,7 +34,7 @@ export function useSocket(onMessage: (data: any) => void) {
       ws.onclose = (e) => {
         setSocket(null);
         if (stopped) return;
-        if (e.code === UNAUTHORIZED) return logout();
+        if (e.code === UNAUTHORIZED && e.reason !== "rate_limited") return logout();
         if (e.code === REPLACED) return setStatus("aberto em outra aba");
         setStatus("reconectando");
         retry = setTimeout(connect, RETRY_MS);

@@ -3,10 +3,12 @@ export const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws";
 
 export class ApiError extends Error {
   code: string;
+  retryAfter: number | null; 
 
-  constructor(code: string, message = "") {
+  constructor(code: string, message = "", retryAfter: number | null = null) {
     super(message);
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -33,7 +35,8 @@ export async function request<T>(path: string, { method = "GET", body, token }: 
   // Resposta sem JSON (ex.: 502) cai no fallback abaixo
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ApiError(data?.error?.code ?? "internal_error", data?.error?.message ?? "");
+    const retryAfter = Number(res.headers.get("Retry-After")) || null;
+    throw new ApiError(data?.error?.code ?? "internal_error", data?.error?.message ?? "", retryAfter);
   }
   return data as T;
 }

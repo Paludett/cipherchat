@@ -56,6 +56,7 @@ export default function Chat({ myId, privateKey }: { myId: string; privateKey: C
 
   function onSocketMessage(data: any) {
     if (data.type === "sent") setStatus(data.msg_id, "enviada");
+    if (data.type === "error" && data.error.code === "rate_limited") setError("Você está enviando mensagens rápido demais. Aguarde um momento.");
     if (data.type === "error" && data.msg_id) setStatus(data.msg_id, data.error.code === "offline" ? "offline" : "erro");
     if (data.type === "message") receive(data).catch(handleError);
   }
