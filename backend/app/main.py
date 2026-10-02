@@ -5,16 +5,22 @@ import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.errors import ApiError, api_error_handler, validation_error_handler
 from app import ws
 from app.logger import logger
+from app.ratelimit import limiter, rate_limit_handler
 from app.routes import admin, auth, keys, users
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 
 app = FastAPI(title="E2EE Chat API")
+app.state.limiter = limiter
+
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +28,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After"],
 )
 
 # Status que viram alerta
@@ -48,6 +55,7 @@ async def auditar_requisicao(request: Request, call_next):
 
 app.add_exception_handler(ApiError, api_error_handler)
 app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(keys.router)
