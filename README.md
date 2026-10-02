@@ -67,7 +67,7 @@ na migration `0002`.
 | `auditor` | opcional | SELECT em `audit_log` |
 
 Nenhuma é superuser nem `BYPASSRLS`, e o `PUBLIC` não tem acesso ao schema `public`.
-`app_api` tem `CONNECTION LIMIT 20`.
+`app_api` tem `CONNECTION LIMIT` e `statement_timeout` vindos do `.env` (ver Limites contra DoS).
 
 Para mostrar o que a `app_api` não consegue fazer (DROP, UPDATE no `audit_log`,
 `COPY ... TO PROGRAM`):
@@ -78,6 +78,29 @@ docker compose exec -e PGPASSWORD="$APP_API_PASSWORD" db \
 ```
 
 Volumes criados antes das roles precisam de `docker compose down -v`.
+
+## Limites contra DoS
+
+Todos configuráveis no `.env` (valores padrão no `.env.example`).
+
+| Limite | Variável | Onde | Ao estourar |
+|--------|----------|------|-------------|
+| Body HTTP | `MAX_BODY_BYTES` | middleware `limitar_body` (`main.py`) | `413 payload_too_large`; POST/PUT/PATCH sem `Content-Length` também |
+| Frame WebSocket | `MAX_WS_FRAME_BYTES` | `ws.py` + `uvicorn --ws-max-size` | fecha com **1009** |
+| WS por usuário | fixo em 1 | `ws.py` | nova conexão fecha com **1008**, a antiga continua |
+| WS no total | `MAX_WS_TOTAL` | `ws.py` | fecha com **1008** |
+| Tamanho de página | `MAX_PAGE_SIZE` | dependency `paginar` (`deps.py`) | `400 validation_error` |
+| Pool da API | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT` | `db.py` | request espera até `DB_POOL_TIMEOUT` s por conexão |
+| Conexões da role | `APP_API_CONNECTION_LIMIT` | `02_roles.sql` | Postgres recusa a conexão |
+| Query lenta | `APP_API_STATEMENT_TIMEOUT` | `02_roles.sql` | Postgres cancela a query |
+
+`DB_POOL_SIZE + DB_MAX_OVERFLOW` precisa ficar abaixo de `APP_API_CONNECTION_LIMIT`
+(sobra para o `/health`). `MAX_WS_FRAME_BYTES` precisa ser maior que o maior envelope
+válido (ciphertext de 64 KiB vira ~87 KB em base64).
+
+Os dois limites da role vêm do `.env` pelo `\getenv` no init script: só valem em volume
+novo, e o `.env` precisa ter as variáveis antes do `docker compose down -v`, senão o
+script falha.
 
 ## Senhas, TOTP e backup codes
 

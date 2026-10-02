@@ -6,13 +6,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.errors import ApiError, api_error_handler, validation_error_handler
+from app.errors import ApiError, api_error_handler, error_response, validation_error_handler
 from app import ws
 from app.logger import logger
 from app.routes import admin, auth, keys, users
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "65536"))
 
 app = FastAPI(title="E2EE Chat API")
 
@@ -31,6 +32,15 @@ ALERTAS = {
     404: (logging.WARNING, "reconnaissance"),
     429: (logging.WARNING, "rate_limited"),
 }
+
+
+@app.middleware("http")
+async def limitar_body(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH"):
+        tamanho = request.headers.get("content-length")
+        if tamanho is None or not tamanho.isdigit() or int(tamanho) > MAX_BODY_BYTES:
+            return error_response(413, "payload_too_large", "Corpo da requisição muito grande.")
+    return await call_next(request)
 
 
 @app.middleware("http")

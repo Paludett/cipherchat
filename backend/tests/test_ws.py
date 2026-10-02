@@ -6,6 +6,7 @@ from sqlalchemy import text
 from starlette.websockets import WebSocketDisconnect
 
 from app import tokens
+from app import ws as ws_module
 from app.ws import manager
 from tests.test_auth import client, db, novo_username, user  # noqa: F401 (fixtures)
 from tests.test_keys import b64, nova_chave, outro, put_chave  # noqa: F401 (fixtures)
@@ -107,16 +108,36 @@ def test_connect_e_disconnect_vao_para_audit_log_sem_token(user, db):
     assert all(token not in (d or "") for d in detalhes)
 
 
-def test_segunda_conexao_derruba_a_primeira_e_continua_online(user, outro):
+def test_segunda_conexao_do_mesmo_usuario_e_recusada_e_primeira_continua(user, outro):
     _, user_id = user
     _, outro_id = outro
     token = forjar_token(user_id)
 
     with conectar(token) as primeira:
-        with conectar(token):
-            with pytest.raises(WebSocketDisconnect):
-                primeira.receive_text()
-            assert [u["id"] for u in online_para(outro_id)] == [str(user_id)]
+        assert_fechado_com_1008(token)
+
+        # A primeira conexao continua viva e online
+        primeira.send_json(envelope(outro_id))
+        assert_erro(primeira, "offline")
+        assert [u["id"] for u in online_para(outro_id)] == [str(user_id)]
+
+
+def test_conexao_acima_do_limite_total_e_recusada(user, outro, monkeypatch):
+    _, user_id = user
+    _, outro_id = outro
+    monkeypatch.setattr(ws_module, "MAX_WS_TOTAL", 1)
+
+    with conectar(forjar_token(user_id)):
+        assert_fechado_com_1008(forjar_token(outro_id))
+
+
+def test_frame_acima_do_limite_fecha_com_1009(user):
+    _, user_id = user
+    with conectar(forjar_token(user_id)) as ws:
+        ws.send_text("x" * (ws_module.MAX_WS_FRAME_BYTES + 1))
+        with pytest.raises(WebSocketDisconnect) as erro:
+            ws.receive_text()
+    assert erro.value.code == 1009
 
 
 # ---------- Mensagens ----------

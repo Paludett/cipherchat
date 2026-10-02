@@ -13,6 +13,8 @@
 \getenv db_admin_password DB_ADMIN_PASSWORD
 \getenv app_api_password APP_API_PASSWORD
 \getenv auditor_password AUDITOR_PASSWORD
+\getenv app_api_connection_limit APP_API_CONNECTION_LIMIT
+\getenv app_api_statement_timeout APP_API_STATEMENT_TIMEOUT
 
 -- Roles, nenhuma é superuser, nenhuma passa por cima de RLS
 CREATE ROLE db_admin LOGIN PASSWORD :'db_admin_password'
@@ -21,7 +23,9 @@ CREATE ROLE db_admin LOGIN PASSWORD :'db_admin_password'
 -- CONNECTION LIMIT evita que a API esgote as conexoes do Postgres
 CREATE ROLE app_api LOGIN PASSWORD :'app_api_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
-    CONNECTION LIMIT 20;
+    CONNECTION LIMIT :app_api_connection_limit;
+
+ALTER ROLE app_api SET statement_timeout = :'app_api_statement_timeout';
 
 CREATE ROLE auditor LOGIN PASSWORD :'auditor_password'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS

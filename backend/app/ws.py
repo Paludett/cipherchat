@@ -1,6 +1,7 @@
 """
 WebSocket /ws e registro de quem esta online
 """
+import os
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -15,6 +16,9 @@ from app.schemas import MessageIn
 
 router = APIRouter()
 
+MAX_WS_FRAME_BYTES = int(os.getenv("MAX_WS_FRAME_BYTES", "131072"))
+MAX_WS_TOTAL = int(os.getenv("MAX_WS_TOTAL", "100"))
+
 
 class ConnectionManager:
     """Uma conexao ativa por usuario (user_id -> WebSocket)."""
@@ -22,11 +26,12 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active: dict[uuid.UUID, WebSocket] = {}
 
-    async def connect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
-        antiga = self.active.get(user_id)
+    def lotado(self, user_id: uuid.UUID) -> bool:
+        # Usuario ja conectado ou servidor no limite total, a nova conexao e recusada
+        return user_id in self.active or len(self.active) >= MAX_WS_TOTAL
+
+    def connect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
         self.active[user_id] = ws
-        if antiga:
-            await antiga.close()
 
     def disconnect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
         if self.active.get(user_id) is ws:
@@ -106,15 +111,19 @@ async def websocket_endpoint(ws: WebSocket):
     token = token_do_handshake(ws)
     await ws.accept(subprotocol="bearer" if token else None)
     user_id = autenticar(token)
-    if user_id is None:
+    if user_id is None or manager.lotado(user_id):
         await ws.close(code=1008)
         return
 
-    await manager.connect(user_id, ws)
+    manager.connect(user_id, ws)
     registrar("ws_connect", ws, user_id)
     try:
         while True:
-            await repassar_mensagem(ws, user_id, await ws.receive_text())
+            texto = await ws.receive_text()
+            if len(texto.encode()) > MAX_WS_FRAME_BYTES:
+                await ws.close(code=1009)
+                break
+            await repassar_mensagem(ws, user_id, texto)
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
