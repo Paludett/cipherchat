@@ -27,6 +27,8 @@ class JSONFormatter(logging.Formatter):
             valor = getattr(record, campo, None)
             if valor is not None:
                 linha[campo] = valor
+        if record.exc_info:
+            linha["stacktrace"] = self.formatException(record.exc_info)
         return json.dumps(linha, default=str, ensure_ascii=False)
 
 

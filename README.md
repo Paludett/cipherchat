@@ -190,6 +190,9 @@ Eventos:
 - `rate_limited` (só arquivo, `WARNING`): todo 429 no HTTP e todo excesso no WebSocket,
   com `ip`, `endpoint` e, no WebSocket, `actor`. Não vai para a `audit_log` para um ataque
   não virar um INSERT por requisição bloqueada.
+- `internal_error` (só arquivo, `ERROR`): erro não tratado no HTTP (500) ou no WebSocket
+  (fecha com 1011), com o campo `stacktrace`. O cliente só recebe `internal_error` genérico,
+  sem SQL, caminho ou stacktrace (handlers em `app/errors.py`).
 - `message_routed` (só arquivo): `actor` = remetente, `target` = destinatário, `msg_id` e
   `status` (`delivered`, `offline` ou `invalid`).
 - `http_request` (middleware em `app/main.py`, toda requisição HTTP):

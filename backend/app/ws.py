@@ -159,6 +159,9 @@ async def websocket_endpoint(ws: WebSocket):
             await enviar_erro(ws, "rate_limited", "Muitas mensagens. Aguarde um momento.")
     except (WebSocketDisconnect, RuntimeError):
         pass
+    except Exception:
+        logger.exception("internal_error", extra={"actor": user_id, "ip": ws.client.host, "endpoint": "WS /ws"})
+        await ws.close(code=1011, reason="internal_error")
     finally:
         manager.disconnect(user_id, ws)
         registrar("ws_disconnect", ws, user_id)
