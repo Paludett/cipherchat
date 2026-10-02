@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { request } from "../api";
 import { useAuth } from "../auth";
 import { friendlyError } from "../errors";
+import { AuthShell, Button, FormError, Input } from "../ui";
 
 export default function Register() {
   const { login } = useAuth();
@@ -28,23 +29,43 @@ export default function Register() {
   }
 
   return (
-    <main className="card">
-      <h1>Criar conta</h1>
+    <AuthShell
+      hero="Sua chave nasce no seu dispositivo."
+      text="Ao criar a conta, um par de chaves é gerado localmente. A chave privada nunca é enviada ao servidor."
+      hex={["e9bc 68fa a474 2c46", "2c88 27a6 0050 1d39"]}
+    >
+      <div className="page-head">
+        <h1 className="title-auth">Criar conta</h1>
+        <p className="subtitle">Escolha um usuário e uma senha forte.</p>
+      </div>
       <form onSubmit={handleSubmit}>
-        <label>
-          Usuário
-          <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
-        </label>
-        <label>
-          Senha
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button disabled={loading}>{loading ? "Criando..." : "Criar conta"}</button>
+        <div className="fields">
+          <Input
+            label="Usuário"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            placeholder="ex: heitor"
+            invalid={!!error}
+            required
+          />
+          <Input
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            placeholder="Mínimo 8 caracteres"
+            invalid={!!error}
+            required
+          />
+          {error && <FormError>{error}</FormError>}
+        </div>
+        <Button disabled={loading}>{loading ? "Criando..." : "Criar conta"}</Button>
       </form>
-      <p>
+      <p className="auth-switch">
         Já tem conta? <Link to="/login">Entrar</Link>
       </p>
-    </main>
+    </AuthShell>
   );
 }

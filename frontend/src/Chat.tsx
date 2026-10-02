@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ApiError, request } from "./api";
 import { useAuth } from "./auth";
 import ContactList from "./ContactList";
@@ -25,7 +25,9 @@ type Incoming = Envelope & { msg_id: string; from: string; sent_at: string };
 const POLL_MS = 5000;
 
 // Histórico só em memória, some ao recarregar e o servidor nunca guarda mensagens
-export default function Chat({ myId, privateKey }: { myId: string; privateKey: CryptoKey }) {
+type Props = { myId: string; privateKey: CryptoKey; sidebarHeader?: ReactNode; sidebarFooter?: ReactNode };
+
+export default function Chat({ myId, privateKey, sidebarHeader, sidebarFooter }: Props) {
   const { token, logout } = useAuth();
   const [online, setOnline] = useState<Contact[]>([]);
   const [names, setNames] = useState<Record<string, string>>({}); // quem já conversou, mesmo offline
@@ -136,29 +138,36 @@ export default function Chat({ myId, privateKey }: { myId: string; privateKey: C
 
   return (
     <div className="chat">
-      <ContactList
-        contacts={contacts}
-        onlineIds={online.map((c) => c.id)}
-        messages={messages}
-        selectedId={chat?.contact.id}
-        onSelect={openChat}
-      />
-      <div className="chat-main">
-        <p className={`socket ${status === "conectado" ? "" : "error"}`}>{status}</p>
-        {error && <p className="error">{error}</p>}
+      <aside className="sidebar">
+        {sidebarHeader}
+        <ContactList
+          contacts={contacts}
+          onlineIds={online.map((c) => c.id)}
+          messages={messages}
+          selectedId={chat?.contact.id}
+          onSelect={openChat}
+        />
+        {sidebarFooter}
+      </aside>
+      <main className="chat-main">
+        {error && <p className="banner-error">{error}</p>}
         {chat ? (
           <Conversation
             key={chat.contact.id}
             chat={chat}
             messages={messages.filter((m) => m.contactId === chat.contact.id)}
             connected={socket !== null}
+            socketStatus={status}
             onSend={send}
             onTrustNewKey={trustNewKey}
           />
         ) : (
-          <p>Escolha um contato para conversar.</p>
+          <div className="empty">
+            <p>Escolha um contato para conversar.</p>
+            <p className={`conv-status ${status === "conectado" ? "is-connected" : ""}`}>{status}</p>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

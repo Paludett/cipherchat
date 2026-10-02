@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { request } from "../api";
 import { useAuth } from "../auth";
 import { friendlyError } from "../errors";
+import { Avatar, Button, Logo } from "../ui";
 
 type AdminUser = { id: string; username: string; role: string; is_active: boolean; mfa_enabled: boolean };
 type UserList = { items: AdminUser[]; total: number };
@@ -47,56 +48,85 @@ export default function Admin() {
   };
 
   return (
-    <main className="app">
-      <header>
-        <h1>Administração</h1>
-        <Link to="/">Voltar</Link>
+    <div className="admin">
+      <header className="topbar">
+        <div className="topbar-brand">
+          <Logo />
+          <span className="topbar-section">Admin</span>
+        </div>
+        <Link to="/">Voltar ao chat</Link>
       </header>
-      {error && <p className="error">{error}</p>}
-      <table>
-        <thead>
-          <tr>
-            <th>Usuário</th>
-            <th>Papel</th>
-            <th>Status</th>
-            <th>MFA</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+      <main className="admin-content">
+        <div className="page-head">
+          <h1 className="title-page">Administração</h1>
+          <p className="subtitle">Gerencie papéis, acesso e status de MFA dos usuários.</p>
+        </div>
+        {error && <p className="banner-error">{error}</p>}
+        <div className="table-card" role="table" aria-label="Usuários">
+          <div className="table-row table-head section-label" role="row">
+            <span role="columnheader">Usuário</span>
+            <span role="columnheader">Papel</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">MFA</span>
+            <span role="columnheader" style={{ textAlign: "right" }}>
+              Ações
+            </span>
+          </div>
           {users.items.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}</td>
-              <td>
-                <select value={u.role} onChange={(e) => update(u, { role: e.target.value })}>
+            <div className="table-row" role="row" key={u.id}>
+              <div className="cell-user" role="cell">
+                <Avatar name={u.username} size={34} />
+                <span>{u.username}</span>
+              </div>
+              <div role="cell">
+                <select
+                  className="select"
+                  aria-label={`Papel de ${u.username}`}
+                  value={u.role}
+                  onChange={(e) => update(u, { role: e.target.value })}
+                >
                   <option value="user">user</option>
                   <option value="admin">admin</option>
                 </select>
-              </td>
-              <td>
-                <button onClick={() => update(u, { is_active: !u.is_active })}>
+              </div>
+              <div role="cell">
+                <span className={`pill ${u.is_active ? "is-active" : ""}`}>{u.is_active ? "Ativo" : "Desativado"}</span>
+              </div>
+              <div role="cell">
+                <span className={u.mfa_enabled ? "mfa-yes" : "mfa-no"}>{u.mfa_enabled ? "Sim" : "Não"}</span>
+              </div>
+              <div className="cell-actions" role="cell">
+                <Button variant="secondary" onClick={() => update(u, { is_active: !u.is_active })}>
                   {u.is_active ? "Desativar" : "Ativar"}
-                </button>
-              </td>
-              <td>{u.mfa_enabled ? "Sim" : "Não"}</td>
-              <td>
-                <button onClick={() => remove(u)}>Remover</button>
-              </td>
-            </tr>
+                </Button>
+                <Button variant="danger" onClick={() => remove(u)}>
+                  Remover
+                </Button>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
-      <nav>
-        <button disabled={offset === 0} onClick={() => setOffset(offset - PAGE_SIZE)}>
-          Anterior
-        </button>
-        <span>
-          {offset + 1}-{Math.min(offset + PAGE_SIZE, users.total)} de {users.total}
-        </span>
-        <button disabled={offset + PAGE_SIZE >= users.total} onClick={() => setOffset(offset + PAGE_SIZE)}>
-          Próxima
-        </button>
-      </nav>
-    </main>
+          <div className="table-footer">
+            <span>
+              {users.total === 0
+                ? "Nenhum usuário"
+                : `${offset + 1}–${Math.min(offset + PAGE_SIZE, users.total)} de ${users.total}`}
+            </span>
+            <div>
+              <Button variant="secondary" size="sm" disabled={offset === 0} onClick={() => setOffset(offset - PAGE_SIZE)}>
+                Anterior
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={offset + PAGE_SIZE >= users.total}
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

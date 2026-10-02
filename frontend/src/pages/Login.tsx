@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api";
 import { useAuth } from "../auth";
 import { friendlyError } from "../errors";
+import { AuthShell, Button, CardPage, FormError, Input, OtpInput, PhoneIcon } from "../ui";
 
 export default function Login() {
   const { login, verifyMfa, recoverMfa } = useAuth();
@@ -54,56 +55,91 @@ export default function Login() {
 
   if (mfaToken) {
     return (
-      <main className="card">
-        <h1>Verificação em 2 etapas</h1>
+      <CardPage>
+        <div className="icon-tile">
+          <PhoneIcon />
+        </div>
+        <div className="page-head">
+          <h1 className="title-page">Verificação em 2 etapas</h1>
+          <p className="subtitle">
+            {useBackup ? "Digite um dos backup codes que você guardou." : "Digite o código de 6 dígitos do app autenticador."}
+          </p>
+        </div>
         <form onSubmit={handleSubmit}>
           {useBackup ? (
-            <label>
-              Backup code
-              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="xxxxx-xxxxx" required />
-            </label>
+            <Input
+              label="Backup code"
+              className="mono"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="xxxxx-xxxxx"
+              invalid={!!error}
+              required
+            />
           ) : (
-            <label>
-              Código do app autenticador
-              <input
+            <div className="field">
+              <span className="field-label">Código do app autenticador</span>
+              <OtpInput
+                aria-label="Código do app autenticador"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 inputMode="numeric"
                 pattern="[0-9]{6}"
                 maxLength={6}
                 autoComplete="one-time-code"
+                autoFocus
                 required
               />
-            </label>
+            </div>
           )}
-          {error && <p className="error">{error}</p>}
-          <button disabled={loading}>{loading ? "Verificando..." : "Verificar"}</button>
+          {error && <FormError>{error}</FormError>}
+          <Button disabled={loading}>{loading ? "Verificando..." : "Verificar"}</Button>
         </form>
-        <button type="button" className="link" onClick={toggleBackup}>
-          {useBackup ? "Usar código do app" : "Perdeu o celular? Usar backup code"}
-        </button>
-      </main>
+        <div className="card-footer">
+          <button type="button" className="link-button" onClick={toggleBackup}>
+            {useBackup ? "Usar código do app" : "Perdeu o celular? Usar backup code"}
+          </button>
+        </div>
+      </CardPage>
     );
   }
 
   return (
-    <main className="card">
-      <h1>Entrar</h1>
+    <AuthShell
+      hero="Só você e quem recebe leem a conversa."
+      text="As mensagens são cifradas no seu dispositivo antes de sair. O servidor só repassa texto ilegível."
+      hex={["2ed1 e230 d808 5c7f", "c581 6a96 c148 a7d6"]}
+    >
+      <div className="page-head">
+        <h1 className="title-auth">Entrar</h1>
+        <p className="subtitle">Use seu usuário e senha.</p>
+      </div>
       <form onSubmit={handleSubmit}>
-        <label>
-          Usuário
-          <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required />
-        </label>
-        <label>
-          Senha
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button disabled={loading}>{loading ? "Entrando..." : "Entrar"}</button>
+        <div className="fields">
+          <Input
+            label="Usuário"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            invalid={!!error}
+            required
+          />
+          <Input
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            invalid={!!error}
+            required
+          />
+          {error && <FormError>{error}</FormError>}
+        </div>
+        <Button disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Button>
       </form>
-      <p>
+      <p className="auth-switch">
         Não tem conta? <Link to="/register">Criar conta</Link>
       </p>
-    </main>
+    </AuthShell>
   );
 }
