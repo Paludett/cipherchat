@@ -1,0 +1,44 @@
+/* Tokens do design_handoff_e2ee_chat */
+:root {
+  /* marca */
+  --brand-900: #14322a;
+  --brand-700: #1e5b47;
+  --brand-800: #174a3a;
+  --brand-950: #123b2e;
+  --brand-100: #ddebe2;
+  --brand-50: #eaf1ec;
+  --brand-150: #cfe0d5;
+  --online: #2f8f6a;
+  --offline: #b5b2aa;
+
+  /* texto sobre painel escuro */
+  --on-dark: #f1eee6;
+  --on-dark-muted: #b9c7bf;
+  --on-dark-subtle: #8fa59a;
+
+  /* neutros */
+  --bg-app: #fbfaf7;
+  --bg-sunken: #f3f1eb;
+  --bg-canvas: #e7e4dc;
+  --border: #e2ded5;
+  --border-input: #d6d2c8;
+  --border-row: #edeae3;
+  --avatar-bg: #dde3dc;
+  --selected: #e3e7e0;
+  --hover: #eae8e1;
+  --white: #ffffff;
+
+  /* texto */
+  --text: #17191b;
+  --text-muted: #5e625f;
+  --text-subtle: #8a8d89;
+  --text-disabled: #a3a6a1;
+
+  /* perigo */
+  --danger: #a1301c;
+  --danger-border: #ebc9c2;
+  --danger-bg: #fbedea;
+
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}

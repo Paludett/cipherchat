@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { request } from "../api";
 import { useAuth } from "../auth";
 import { friendlyError } from "../errors";
+import { Button, CardPage, FormError, OtpInput, PhoneIcon } from "../ui";
 
 type SetupResponse = { secret: string; otpauth_uri: string };
 type ActivateResponse = { backup_codes: string[] };
@@ -45,9 +46,12 @@ export default function MfaSetup() {
 
   if (backupCodes) {
     return (
-      <main className="card">
-        <h1>MFA ativado</h1>
-        <p className="warning">
+      <CardPage step={2} wide>
+        <div className="page-head">
+          <h1 className="title-page">MFA ativado</h1>
+          <p className="subtitle">Agora o login também pede o código do app autenticador.</p>
+        </div>
+        <p className="notice">
           Guarde estes códigos agora, eles não serão mostrados de novo. Cada um serve uma única vez para entrar se você
           perder o celular.
         </p>
@@ -58,51 +62,72 @@ export default function MfaSetup() {
             </li>
           ))}
         </ul>
-        <Link to="/">Já guardei, voltar ao chat</Link>
-      </main>
+        <div className="card-footer">
+          <Link to="/">Já guardei, voltar ao chat</Link>
+        </div>
+      </CardPage>
     );
   }
 
   if (setup) {
     return (
-      <main className="card">
-        <h1>Escaneie o QR Code</h1>
-        <p>Use Google Authenticator, Authy ou outro app TOTP.</p>
-        <QRCodeSVG value={setup.otpauth_uri} size={200} />
-        <p>
-          Sem câmera? Digite a chave: <code>{setup.secret}</code>
-        </p>
+      <CardPage step={2} wide>
+        <div className="page-head">
+          <h1 className="title-page">Escaneie o QR Code</h1>
+          <p className="subtitle">Use Google Authenticator, Authy ou outro app TOTP.</p>
+        </div>
+        <div className="qr-row">
+          <div className="qr">
+            <QRCodeSVG value={setup.otpauth_uri} size={176} />
+          </div>
+          <div className="field">
+            <span className="field-label">Sem câmera? Digite a chave:</span>
+            <code className="secret">{setup.secret.match(/.{1,4}/g)!.join(" ")}</code>
+          </div>
+        </div>
+        <div className="divider" />
         <form onSubmit={activate}>
-          <label>
-            Código de 6 dígitos do app
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              autoComplete="one-time-code"
-              required
-            />
-          </label>
-          {error && <p className="error">{error}</p>}
-          <button disabled={loading}>{loading ? "Ativando..." : "Ativar MFA"}</button>
+          <div className="field">
+            <span className="field-label">Código de 6 dígitos do app</span>
+            <div className="otp-row">
+              <OtpInput
+                aria-label="Código de 6 dígitos do app"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                autoComplete="one-time-code"
+                required
+              />
+              <Button disabled={loading}>{loading ? "Ativando..." : "Ativar MFA"}</Button>
+            </div>
+            {error && <FormError>{error}</FormError>}
+          </div>
         </form>
-      </main>
+        <div className="card-footer">
+          <Link to="/">Voltar</Link>
+        </div>
+      </CardPage>
     );
   }
 
   return (
-    <main className="card">
-      <h1>Verificação em 2 etapas</h1>
-      <p>Além da senha, o login vai pedir um código do app autenticador no celular.</p>
-      {error && <p className="error">{error}</p>}
-      <button onClick={startSetup} disabled={loading}>
-        {loading ? "Gerando..." : "Gerar QR Code"}
-      </button>
-      <p>
+    <CardPage step={1}>
+      <div className="icon-tile">
+        <PhoneIcon />
+      </div>
+      <div className="page-head">
+        <h1 className="title-page">Verificação em 2 etapas</h1>
+        <p className="subtitle">Além da senha, o login vai pedir um código do app autenticador no celular.</p>
+      </div>
+      {error && <FormError>{error}</FormError>}
+      <div className="card-footer">
         <Link to="/">Voltar</Link>
-      </p>
-    </main>
+        <Button onClick={startSetup} disabled={loading}>
+          {loading ? "Gerando..." : "Gerar QR Code"}
+        </Button>
+      </div>
+    </CardPage>
   );
 }

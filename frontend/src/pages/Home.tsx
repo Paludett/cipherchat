@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { ApiError, request } from "../api";
 import { useAuth } from "../auth";
 import Chat from "../Chat";
-import { fingerprint, formatFingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
+import { fingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
 import { friendlyError } from "../errors";
+import { Button, FormError, KeyGrid, Logo } from "../ui";
 
 type Me = { id: string; username: string; role: string; mfa_enabled: boolean; fingerprint: string | null };
 
@@ -40,22 +41,42 @@ export default function Home() {
       });
   }, []);
 
-  return (
-    <main className="app">
-      <header>
-        <h1>E2EE Chat</h1>
-        {me && <span>Olá, {me.username}!</span>}
-        {myFingerprint && (
-          <span>
-            Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
-          </span>
-        )}
-        {me?.role === "admin" && <Link to="/admin">Admin</Link>}
-        {me && !me.mfa_enabled && <Link to="/mfa/setup">Ativar MFA</Link>}
-        <button onClick={logout}>Sair</button>
-      </header>
-      {error && <p className="error">{error}</p>}
-      {me && privateKey && <Chat myId={me.id} privateKey={privateKey} />}
-    </main>
+  const header = (
+    <div className="sidebar-header">
+      <Logo />
+      <Button variant="secondary" size="sm" onClick={logout}>
+        Sair
+      </Button>
+    </div>
   );
+
+  if (!me || !privateKey) {
+    return (
+      <div className="card-page">
+        <main className="card">
+          {header}
+          {error ? <FormError>{error}</FormError> : <p className="subtitle">Preparando suas chaves...</p>}
+        </main>
+      </div>
+    );
+  }
+
+  const meCard = (
+    <div className="me-card">
+      <div className="me-card-head">
+        <div>
+          <span className="me-name">Olá, {me.username}</span>
+          <span className="me-sub">Sua chave</span>
+        </div>
+        <div className="me-links">
+          {me.role === "admin" && <Link to="/admin">Admin</Link>}
+          {!me.mfa_enabled && <Link to="/mfa/setup">Ativar MFA</Link>}
+        </div>
+      </div>
+      {myFingerprint && <KeyGrid fingerprint={myFingerprint} columns={4} />}
+    </div>
+  );
+
+  // error só é setado antes de privateKey existir, então aparece no estado acima
+  return <Chat myId={me.id} privateKey={privateKey} sidebarHeader={header} sidebarFooter={meCard} />;
 }
