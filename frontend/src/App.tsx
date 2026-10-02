@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import RequireAuth from "./RequireAuth";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import MfaSetup from "./pages/MfaSetup";
 import Register from "./pages/Register";
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<Home />} />
+        <Route path="/mfa/setup" element={<MfaSetup />} />
       </Route>
     </Routes>
   );
