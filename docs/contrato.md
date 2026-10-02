@@ -30,7 +30,8 @@ Toda resposta de erro (REST e WebSocket) usa o mesmo envelope:
 | 403 | `forbidden` | Token válido mas papel insuficiente (ex.: `user` em rota `admin`) |
 | 403 | `account_disabled` | Login com senha correta mas `is_active = false` |
 | 403 | `cannot_modify_self` | Admin tentando remover ou rebaixar a si mesmo |
-| 404 | `not_found` | Recurso não existe (nunca 200 com corpo nulo) |
+| 404 | `not_found` | Recurso ou rota não existe (nunca 200 com corpo nulo) |
+| 405 | `method_not_allowed` | Método HTTP não aceito na rota |
 | 409 | `username_taken` | Registro com username já usado |
 | 409 | `mfa_already_enabled` | Setup de MFA com MFA já ativo |
 | 409 | `mfa_not_pending` | Ativação sem setup prévio |
@@ -299,3 +300,4 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
 | 1000 | Encerramento normal |
 | 1008 | Não autenticado, token inválido/expirado, usuário desativado, conexões demais ou rate limit |
 | 1009 | Frame acima do limite (`MAX_WS_FRAME_BYTES`) |
+| 1011 | Erro interno inesperado, reason `internal_error`; só esta conexão cai e o cliente pode reconectar |
