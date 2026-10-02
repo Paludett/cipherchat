@@ -1,18 +1,9 @@
 services:
   db:
-    image: postgres:16-alpine
+    build: ./db
     env_file: .env
-    environment:
-      # Forca scram-sha-256 no initdb, o pg_hba.conf abaixo exige o mesmo.
-      # O banco é so alcando pela rede interna do compose
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
-      - ./db/init:/docker-entrypoint-initdb.d:ro
-      - ./db/demo_app_api.sql:/demo_app_api.sql:ro
-    # listen_addresses='*' escuta todas as interfaces do container, que so tem loopback e a rede interna do compose. Quem filtra e o pg_hba.conf
-    command: postgres -c listen_addresses='*' -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -32,7 +23,9 @@ services:
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --ws-max-size $${MAX_WS_FRAME_BYTES:-131072} --timeout-keep-alive 5"
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      target: dev
     env_file: .env
     ports:
       - "5173:5173"

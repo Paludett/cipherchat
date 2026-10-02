@@ -1,0 +1,6 @@
+:{$PORT:80} {
+	root * /srv
+	# Rotas do react-router caem no index.html
+	try_files {path} /index.html
+	file_server
+}
