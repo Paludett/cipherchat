@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, request } from "../api";
 import { useAuth } from "../auth";
 import Chat from "../Chat";
 import { fingerprint, formatFingerprint, getOrCreateKeyPair, toBase64 } from "../crypto";
 import { friendlyError } from "../errors";
 
-type Me = { id: string; username: string; role: string; fingerprint: string | null };
+type Me = { id: string; username: string; role: string; mfa_enabled: boolean; fingerprint: string | null };
 
 export default function Home() {
   const { token, logout } = useAuth();
@@ -49,6 +50,7 @@ export default function Home() {
             Sua chave: <code>{formatFingerprint(myFingerprint)}</code>
           </span>
         )}
+        {me && !me.mfa_enabled && <Link to="/mfa/setup">Ativar MFA</Link>}
         <button onClick={logout}>Sair</button>
       </header>
       {error && <p className="error">{error}</p>}
