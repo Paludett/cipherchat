@@ -24,11 +24,12 @@ def online_para(observador_id) -> list[dict]:
     return resp.json()
 
 
-def assert_fechado_com_1008(token: str | None):
+def assert_fechado_com_1008(token: str | None, reason: str = ""):
     with pytest.raises(WebSocketDisconnect) as erro:
         with conectar(token) as ws:
             ws.receive_text()
     assert erro.value.code == 1008
+    assert erro.value.reason == reason
 
 
 def acoes_no_audit(db, user_id) -> list[str]:
@@ -114,7 +115,7 @@ def test_segunda_conexao_do_mesmo_usuario_e_recusada_e_primeira_continua(user, o
     token = forjar_token(user_id)
 
     with conectar(token) as primeira:
-        assert_fechado_com_1008(token)
+        assert_fechado_com_1008(token, "already_connected")
 
         # A primeira conexao continua viva e online
         primeira.send_json(envelope(outro_id))
@@ -128,7 +129,7 @@ def test_conexao_acima_do_limite_total_e_recusada(user, outro, monkeypatch):
     monkeypatch.setattr(ws_module, "MAX_WS_TOTAL", 1)
 
     with conectar(forjar_token(user_id)):
-        assert_fechado_com_1008(forjar_token(outro_id))
+        assert_fechado_com_1008(forjar_token(outro_id), "server_full")
 
 
 def test_frame_acima_do_limite_fecha_com_1009(user):

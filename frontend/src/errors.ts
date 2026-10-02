@@ -15,7 +15,16 @@ const messages: Record<string, string> = {
   internal_error: "Erro inesperado. Tente novamente.",
 };
 
+function formatWait(seconds: number): string {
+  if (seconds < 60) return `${seconds} segundos`;
+  const minutes = Math.ceil(seconds / 60);
+  return minutes === 1 ? "1 minuto" : `${minutes} minutos`;
+}
+
 export function friendlyError(err: unknown): string {
+  if (err instanceof ApiError && err.code === "rate_limited" && err.retryAfter) {
+    return `Muitas tentativas. Tente de novo em ${formatWait(err.retryAfter)}.`;
+  }
   if (err instanceof ApiError) {
     return messages[err.code] ?? (err.message || messages.internal_error);
   }

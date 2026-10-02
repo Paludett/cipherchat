@@ -12,6 +12,7 @@ from app.db import get_db
 from app.deps import get_current_user, get_mfa_pending, nao_autenticado
 from app.errors import ApiError
 from app.models import RevokedToken, User
+from app.ratelimit import BLOQUEIO_MINUTOS, LIMITE_AUTH, limite_excedido, limiter, login_bloqueado
 from app.schemas import (
     BackupCodesOut,
     LoginMfaOut,
@@ -35,7 +36,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", status_code=201, response_model=UserOut)
-def register(body: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit(LIMITE_AUTH)
+def register(body: UserCreate, request: Request, db: Session = Depends(get_db)):
     # Nao faz login, o frontend chama /auth/login em seguida
     try:
         user_id = security.create_user(db, body.username, body.password)
@@ -48,8 +50,13 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=LoginOut | LoginMfaOut)
+@limiter.limit(LIMITE_AUTH)
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     ip = request.client.host if request.client else None
+
+    if login_bloqueado(db, body.username, ip):
+        return limite_excedido(request, BLOQUEIO_MINUTOS * 60)
+
     user_id = security.check_password(db, body.username, body.password)
 
     # Mesma resposta para usuario inexistente e senha errada
@@ -84,6 +91,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/mfa/setup", response_model=MfaSetupOut)
+@limiter.limit(LIMITE_AUTH)
 def mfa_setup(
     request: Request,
     user: User = Depends(get_current_user),
@@ -104,6 +112,7 @@ def mfa_setup(
 
 
 @router.post("/mfa/activate", response_model=BackupCodesOut)
+@limiter.limit(LIMITE_AUTH)
 def mfa_activate(
     body: MfaCodeRequest,
     request: Request,
@@ -145,6 +154,7 @@ def _finish_mfa_login(db: Session, user: User, claims: dict, ip: str | None, act
 
 
 @router.post("/mfa/verify", response_model=TokenOut)
+@limiter.limit(LIMITE_AUTH)
 def mfa_verify(
     body: MfaCodeRequest,
     request: Request,
@@ -163,6 +173,7 @@ def mfa_verify(
 
 
 @router.post("/mfa/recover", response_model=TokenOut)
+@limiter.limit(LIMITE_AUTH)
 def mfa_recover(
     body: MfaRecoverRequest,
     request: Request,

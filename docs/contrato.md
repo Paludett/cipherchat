@@ -258,7 +258,7 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
    - OK → `{ "type": "auth_ok", "user_id": "<sub>" }` e registra o usuário como online.
    - Falha, timeout ou qualquer outra mensagem antes do `auth` → `{ "type": "error", "error": {"code": "unauthenticated", ...} }` e fecha com **1008**.
 4. Token expira com a conexão aberta → servidor fecha com **1008**; cliente refaz login e reconecta.
-5. Nova conexão de usuário que já está conectado, ou com o servidor em `MAX_WS_TOTAL` conexões → recusada com **1008**. A conexão já aberta continua.
+5. Nova conexão de usuário que já está conectado → recusada com **1008**, reason `already_connected` (a conexão já aberta continua). Servidor em `MAX_WS_TOTAL` conexões → **1008**, reason `server_full`. Nos dois casos o cliente tenta de novo em vez de deslogar.
 
 ### 6.2 Eventos
 

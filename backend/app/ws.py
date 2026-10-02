@@ -3,6 +3,7 @@ WebSocket /ws e registro de quem esta online
 """
 import os
 import uuid
+from time import monotonic
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
@@ -12,6 +13,7 @@ from app.db import SessionLocal
 from app.deps import authenticate
 from app.errors import ApiError
 from app.logger import logger
+from app.ratelimit import WS_MSGS_POR_SEGUNDO
 from app.schemas import MessageIn
 
 router = APIRouter()
@@ -26,10 +28,6 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active: dict[uuid.UUID, WebSocket] = {}
 
-    def lotado(self, user_id: uuid.UUID) -> bool:
-        # Usuario ja conectado ou servidor no limite total, a nova conexao e recusada
-        return user_id in self.active or len(self.active) >= MAX_WS_TOTAL
-
     def connect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
         self.active[user_id] = ws
 
@@ -42,6 +40,19 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+class LimiteMensagens:
+    def __init__(self) -> None:
+        self.segundo = 0
+        self.contagem = 0
+
+    def permite(self) -> bool:
+        agora = int(monotonic())
+        if agora != self.segundo:
+            self.segundo, self.contagem = agora, 0
+        self.contagem += 1
+        return self.contagem <= WS_MSGS_POR_SEGUNDO
 
 
 def token_do_handshake(ws: WebSocket) -> str | None:
@@ -111,19 +122,36 @@ async def websocket_endpoint(ws: WebSocket):
     token = token_do_handshake(ws)
     await ws.accept(subprotocol="bearer" if token else None)
     user_id = autenticar(token)
-    if user_id is None or manager.lotado(user_id):
+    if user_id is None:
         await ws.close(code=1008)
+        return
+    if user_id in manager.active:
+        await ws.close(code=1008, reason="already_connected")
+        return
+    if len(manager.active) >= MAX_WS_TOTAL:
+        await ws.close(code=1008, reason="server_full")
         return
 
     manager.connect(user_id, ws)
     registrar("ws_connect", ws, user_id)
+    limite = LimiteMensagens()
+    ja_avisado = False
     try:
         while True:
             texto = await ws.receive_text()
             if len(texto.encode()) > MAX_WS_FRAME_BYTES:
                 await ws.close(code=1009)
                 break
-            await repassar_mensagem(ws, user_id, texto)
+            if limite.permite():
+                await repassar_mensagem(ws, user_id, texto)
+                continue
+
+            logger.warning("rate_limited", extra={"actor": user_id, "ip": ws.client.host, "endpoint": "WS /ws"})
+            if ja_avisado:
+                await ws.close(code=1008, reason="rate_limited")
+                break
+            ja_avisado = True
+            await enviar_erro(ws, "rate_limited", "Muitas mensagens. Aguarde um momento.")
     except (WebSocketDisconnect, RuntimeError):
         pass
     finally:

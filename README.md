@@ -87,8 +87,8 @@ Todos configuráveis no `.env` (valores padrão no `.env.example`).
 |--------|----------|------|-------------|
 | Body HTTP | `MAX_BODY_BYTES` | middleware `limitar_body` (`main.py`) | `413 payload_too_large`; POST/PUT/PATCH sem `Content-Length` também |
 | Frame WebSocket | `MAX_WS_FRAME_BYTES` | `ws.py` + `uvicorn --ws-max-size` | fecha com **1009** |
-| WS por usuário | fixo em 1 | `ws.py` | nova conexão fecha com **1008**, a antiga continua |
-| WS no total | `MAX_WS_TOTAL` | `ws.py` | fecha com **1008** |
+| WS por usuário | fixo em 1 | `ws.py` | nova conexão fecha com **1008** reason `already_connected`, a antiga continua (frontend mostra "aberto em outra aba" e tenta de novo) |
+| WS no total | `MAX_WS_TOTAL` | `ws.py` | fecha com **1008** reason `server_full` (frontend reconecta) |
 | Tamanho de página | `MAX_PAGE_SIZE` | dependency `paginar` (`deps.py`) | `400 validation_error` |
 | Pool da API | `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT` | `db.py` | request espera até `DB_POOL_TIMEOUT` s por conexão |
 | Conexões da role | `APP_API_CONNECTION_LIMIT` | `02_roles.sql` | Postgres recusa a conexão |
@@ -127,6 +127,33 @@ injetado (XSS) consegue ler o token de `localStorage`/`sessionStorage`. O logout
 Ao adicionar dependência no frontend, rebuild: `docker compose up --build`
 (o `node_modules` do container fica em volume anônimo, use `docker compose down` se não atualizar).
 
+## Rate limit
+
+`backend/app/ratelimit.py`, com slowapi e contadores em memória (zeram ao reiniciar e valem
+para um único processo uvicorn).
+
+| Onde | Limite | Chave |
+|------|--------|-------|
+| `/auth/register`, `/auth/login`, `/auth/mfa/*` | 5/min por rota | `sub` do JWT, senão IP |
+| Demais rotas HTTP | 60/min | `sub` do JWT, senão IP |
+| WebSocket `/ws` | 20 mensagens/s por conexão | conexão |
+| Login | 5 falhas em 15 min bloqueiam por 15 min | username + IP |
+
+- A chave usa o `sub` só se a assinatura do JWT (de acesso ou de MFA) for válida. Assim um
+  token forjado com outro `sub` não escapa do limite, cai no IP.
+- Excesso no HTTP → `429 rate_limited` com `Retry-After` (tamanho da janela; 900 s no
+  bloqueio de login). O CORS expõe o header para o frontend mostrar o tempo de espera.
+- Bloqueio de login: conta os `login_failed` do par username + IP na `audit_log` e é checado
+  antes da senha, então nem a senha certa entra desse IP durante o bloqueio. Ser por par
+  impede que um atacante trave a conta do dono, que entra normalmente de outro IP. Vale
+  também para username inexistente, sem revelar se a conta existe.
+- WebSocket: o 1º excesso recebe `{"type": "error", "error": {"code": "rate_limited"}}` e a
+  mensagem é descartada; a reincidência fecha com `1008`, reason `rate_limited` (o frontend
+  usa o reason para reconectar em vez de deslogar).
+
+Os testes zeram o limiter antes de cada teste (`backend/tests/conftest.py`), pois todos saem
+do mesmo IP.
+
 ## Logs de auditoria
 
 `backend/app/logger.py` grava uma linha JSON por evento em `backend/logs/audit.log`
@@ -146,6 +173,9 @@ Eventos:
 - `log_event()` (`app/audit.py`) grava na tabela `audit_log` **e** no arquivo: `login_success`,
   `login_failed`, `login_mfa_pending`, `mfa_setup`, `mfa_activate_failed`, `mfa_activated`,
   `mfa_verified`, `mfa_verify_failed`, `mfa_recovered`, `mfa_recover_failed`, `key_changed`, `ws_connect`, `ws_disconnect`.
+- `rate_limited` (só arquivo, `WARNING`): todo 429 no HTTP e todo excesso no WebSocket,
+  com `ip`, `endpoint` e, no WebSocket, `actor`. Não vai para a `audit_log` para um ataque
+  não virar um INSERT por requisição bloqueada.
 - `message_routed` (só arquivo): `actor` = remetente, `target` = destinatário, `msg_id` e
   `status` (`delivered`, `offline` ou `invalid`).
 - `http_request` (middleware em `app/main.py`, toda requisição HTTP):
