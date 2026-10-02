@@ -1,6 +1,7 @@
 """
 WebSocket /ws e registro de quem esta online
 """
+import os
 import uuid
 from time import monotonic
 
@@ -17,6 +18,9 @@ from app.schemas import MessageIn
 
 router = APIRouter()
 
+MAX_WS_FRAME_BYTES = int(os.getenv("MAX_WS_FRAME_BYTES", "131072"))
+MAX_WS_TOTAL = int(os.getenv("MAX_WS_TOTAL", "100"))
+
 
 class ConnectionManager:
     """Uma conexao ativa por usuario (user_id -> WebSocket)."""
@@ -24,11 +28,8 @@ class ConnectionManager:
     def __init__(self) -> None:
         self.active: dict[uuid.UUID, WebSocket] = {}
 
-    async def connect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
-        antiga = self.active.get(user_id)
+    def connect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
         self.active[user_id] = ws
-        if antiga:
-            await antiga.close()
 
     def disconnect(self, user_id: uuid.UUID, ws: WebSocket) -> None:
         if self.active.get(user_id) is ws:
@@ -124,14 +125,23 @@ async def websocket_endpoint(ws: WebSocket):
     if user_id is None:
         await ws.close(code=1008)
         return
+    if user_id in manager.active:
+        await ws.close(code=1008, reason="already_connected")
+        return
+    if len(manager.active) >= MAX_WS_TOTAL:
+        await ws.close(code=1008, reason="server_full")
+        return
 
-    await manager.connect(user_id, ws)
+    manager.connect(user_id, ws)
     registrar("ws_connect", ws, user_id)
     limite = LimiteMensagens()
     ja_avisado = False
     try:
         while True:
             texto = await ws.receive_text()
+            if len(texto.encode()) > MAX_WS_FRAME_BYTES:
+                await ws.close(code=1009)
+                break
             if limite.permite():
                 await repassar_mensagem(ws, user_id, texto)
                 continue

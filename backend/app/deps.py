@@ -4,10 +4,11 @@ Dependencies de autenticacao e autorizacao das rotas protegidas
 401 sempre igual (unauthenticated), sem dizer o motivo
 403 forbidden so quando o token e valido e o papel e insuficiente
 """
+import os
 import uuid
 
 import jwt
-from fastapi import Depends
+from fastapi import Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,8 @@ from app.models import RevokedToken, User
 from app.tokens import JWT_ALGORITHM, JWT_AUDIENCE, JWT_ISSUER, JWT_SECRET, MFA_AUDIENCE
 
 bearer = HTTPBearer(auto_error=False)
+
+MAX_PAGE_SIZE = int(os.getenv("MAX_PAGE_SIZE", "100"))
 
 
 def nao_autenticado() -> ApiError:
@@ -85,3 +88,11 @@ def require_role(role: str):
             raise ApiError(403, "forbidden", "Permissão insuficiente.")
         return user
     return check
+
+
+def paginar(
+    limit: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    # Toda listagem passa por aqui, nenhuma rota devolve a tabela inteira
+    return {"limit": limit, "offset": offset}

@@ -34,7 +34,7 @@ Toda resposta de erro (REST e WebSocket) usa o mesmo envelope:
 | 409 | `username_taken` | Registro com username já usado |
 | 409 | `mfa_already_enabled` | Setup de MFA com MFA já ativo |
 | 409 | `mfa_not_pending` | Ativação sem setup prévio |
-| 413 | `payload_too_large` | Body acima do limite (`MAX_BODY_BYTES`) |
+| 413 | `payload_too_large` | Body acima do limite (`MAX_BODY_BYTES`) ou POST/PUT/PATCH sem `Content-Length` |
 | 429 | `rate_limited` | Limite excedido. Resposta traz header `Retry-After` (segundos) |
 | 500 | `internal_error` | Qualquer erro não tratado |
 
@@ -166,7 +166,7 @@ Limitação conhecida: não há assinatura do remetente, então autenticidade de
 
 Papel: `—` = público, `user` = qualquer token de acesso válido, `admin` = `role == "admin"`, `mfa` = token parcial de MFA (`scope = mfa_pending`).
 
-Listagens são paginadas: query `?limit=` (padrão 20, máx. 100) e `?offset=` (padrão 0); resposta `{items: [...], total}`.
+Listagens são paginadas: query `?limit=` (padrão 20, máx. `MAX_PAGE_SIZE`, 100) e `?offset=` (padrão 0); resposta `{items: [...], total}`.
 
 | Método | Rota | Papel | Request | Response (sucesso) | Erros |
 |--------|------|-------|---------|--------------------|-------|
@@ -258,7 +258,7 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
    - OK → `{ "type": "auth_ok", "user_id": "<sub>" }` e registra o usuário como online.
    - Falha, timeout ou qualquer outra mensagem antes do `auth` → `{ "type": "error", "error": {"code": "unauthenticated", ...} }` e fecha com **1008**.
 4. Token expira com a conexão aberta → servidor fecha com **1008**; cliente refaz login e reconecta.
-5. Nova conexão do mesmo usuário acima do limite (`MAX_WS_PER_USER`) → recusada com **1008**.
+5. Nova conexão de usuário que já está conectado → recusada com **1008**, reason `already_connected` (a conexão já aberta continua). Servidor em `MAX_WS_TOTAL` conexões → **1008**, reason `server_full`. Nos dois casos o cliente tenta de novo em vez de deslogar.
 
 ### 6.2 Eventos
 
