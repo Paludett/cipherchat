@@ -12,6 +12,9 @@ const messages: Record<string, string> = {
   mfa_already_enabled: "MFA já está ativo nesta conta.",
   mfa_not_pending: "Nenhum MFA aguardando ativação. Gere o QR Code de novo.",
   unauthenticated: "Sessão expirou. Faça login de novo.",
+  forbidden: "Você não tem permissão para isso.",
+  cannot_modify_self: "Você não pode alterar ou remover a si mesmo.",
+  not_found: "Usuário não encontrado.",
   internal_error: "Erro inesperado. Tente novamente.",
 };
 
