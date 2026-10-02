@@ -1,0 +1,106 @@
+name: Pipeline DevSecOps
+
+# Roda em todo PR para a main (bloqueia o merge via branch protection)
+# e em todo push na main (audita o que de fato entrou)
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+# Principio do menor privilegio, o token do Actions so le o repositorio
+permissions:
+  contents: read
+
+# Um push novo no mesmo PR cancela a execucao anterior
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # SAST: procura padroes inseguros no codigo Python 
+  sast-bandit:
+    name: SAST - Bandit (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install bandit
+      - run: bandit -r backend -x backend/tests -ll
+
+  # SCA: CVEs conhecidas nas dependencias Python
+  sca-python:
+    name: SCA - pip-audit (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r backend/requirements.txt
+
+  # SCA: CVEs conhecidas nas dependencias do frontend
+  sca-node:
+    name: SCA - npm audit (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: npm audit --audit-level=moderate
+
+  # Suite do backend contra o Postgres real 
+  test-backend:
+    name: Testes - pytest (backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Senhas e segredos aleatorios por execucao, o banco morre com o runner
+      - name: Gerar .env de CI
+        run: |
+          gen() { openssl rand -hex 24; }
+          sed \
+            -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(gen)|" \
+            -e "s|troque-esta-senha-admin|$(gen)|g" \
+            -e "s|troque-esta-senha-api|$(gen)|g" \
+            -e "s|troque-esta-senha-auditor|$(gen)|g" \
+            -e "s|troque-esta-senha-do-admin|$(gen)|g" \
+            -e "s|^JWT_SECRET=.*|JWT_SECRET=$(gen)|" \
+            -e "s|^TOTP_ENCRYPTION_KEY=.*|TOTP_ENCRYPTION_KEY=$(gen)|" \
+            .env.example > .env
+
+      - name: Subir o banco
+        run: docker compose up -d --wait db
+
+      - name: Migrations + pytest
+        run: docker compose run --rm --no-deps backend sh -c "alembic upgrade head && pytest -q tests"
+
+      - name: Logs do banco (se falhar)
+        if: failure()
+        run: docker compose logs db
+
+  # Testes unitarios e build do frontend
+  test-frontend:
+    name: Testes - vitest + build (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
