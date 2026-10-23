@@ -3,7 +3,7 @@ Log de auditoria em JSON, uma linha por evento
 
 who: actor/ip | what: event_type | when: timestamp | where: endpoint/target | result: status
 
-!!! Nunca logar senha, JWT, chave, segredo TOTP, backup code nem conteudo cifrado
+Importante: nunca logar senha, JWT, chave, segredo TOTP, backup code nem conteudo cifrado
 """
 import json
 import logging

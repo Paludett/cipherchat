@@ -1,7 +1,7 @@
 """
 Eventos da aplicacao na audit_log (login, MFA, logout) e no log JSON
 
-!!! Nunca passar senha, token ou segredo em details
+Importante: nunca passar senha, token ou segredo em details
 """
 import uuid
 from typing import Any

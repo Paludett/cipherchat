@@ -13,7 +13,7 @@ def sqlalchemy_url(url: str) -> str:
     return url
 
 
-# Conexao da API: role app_api tem so DML, As migrations usam db_admin, ver alembic/env.py
+# Conexao da API: a role app_api tem so DML. As migrations usam db_admin, ver alembic/env.py
 DATABASE_URL = sqlalchemy_url(os.environ["DATABASE_URL"])
 
 # Nomes de constraint deterministicos, para as migrations poderem referencia-los

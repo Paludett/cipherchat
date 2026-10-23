@@ -12,7 +12,7 @@ beforeAll(async () => {
   );
 });
 
-// Inverte 1 bit do primeiro byte do campo, igual a adulterar o token do Fernet
+// Inverte 1 bit do primeiro byte do campo para simular adulteração
 function tamper(b64: string): string {
   const bytes = new Uint8Array(fromBase64(b64));
   bytes[0] ^= 1;

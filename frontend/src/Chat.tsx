@@ -21,7 +21,7 @@ export type Msg = {
 };
 type Incoming = Envelope & { msg_id: string; from: string; sent_at: string };
 
-// polling a cada 5s, troca pelo evento presence do /ws quando o backend enviar
+// Lista de online via polling, o /ws ainda não emite eventos de presença
 const POLL_MS = 5000;
 
 // Histórico só em memória, some ao recarregar e o servidor nunca guarda mensagens
@@ -130,7 +130,7 @@ export default function Chat({ myId, privateKey, sidebarHeader, sidebarFooter }:
     socket!.send(JSON.stringify({ type: "message", msg_id: id, to, sent_at, ...envelope }));
   }
 
-  // Lista estilo WhatsApp, quem está online + quem já tem conversa
+  // Contatos: quem está online + conversas já abertas
   const contacts = [...online];
   for (const [id, username] of Object.entries(names)) {
     if (!contacts.some((c) => c.id === id)) contacts.push({ id, username });
