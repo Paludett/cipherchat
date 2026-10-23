@@ -1,5 +1,5 @@
-// Par RSA-OAEP gerado no navegador  
-// A privada é criada com extractable: false e 
+// Par RSA-OAEP gerado no navegador
+// A privada é criada com extractable: false e
 // fica no IndexedDB como CryptoKey, nunca sai daqui
 // Outro navegador = outro IndexedDB = outra chave
 
@@ -12,7 +12,7 @@ const RSA: RsaHashedKeyGenParams = {
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("e2ee-chat", 1);
+    const req = indexedDB.open("cipherchat", 1);
     req.onupgradeneeded = () => req.result.createObjectStore("keys");
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

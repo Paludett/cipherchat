@@ -20,7 +20,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 | Variável | Obrigatória | Padrão | Uso |
 |----------|:-----------:|--------|-----|
-| `POSTGRES_DB` | sim | — | Nome do banco (`e2ee_chat`) |
+| `POSTGRES_DB` | sim | — | Nome do banco (`cipherchat`) |
 | `POSTGRES_USER` | sim | — | Superusuário de bootstrap, só o initdb usa. O backend nunca conecta com ele |
 | `POSTGRES_PASSWORD` | sim | — | Senha do superusuário |
 | `DB_ADMIN_PASSWORD` | sim | — | Role `db_admin` (dona do schema, roda as migrations) |
@@ -39,8 +39,8 @@ volume**. Mudou alguma depois? `docker compose down -v` e sobe de novo (apaga os
 | `DATABASE_URL` | sim | — | Conexão da API como `app_api` |
 | `MIGRATION_DATABASE_URL` | sim | — | Conexão do Alembic como `db_admin` |
 | `JWT_SECRET` | sim | — | Assina os JWT (HS256). Use 48+ bytes aleatórios |
-| `JWT_ISSUER` | não | `e2ee-chat` | Claim `iss` |
-| `JWT_AUDIENCE` | não | `e2ee-chat-web` | Claim `aud` do token de acesso |
+| `JWT_ISSUER` | não | `cipherchat` | Claim `iss` |
+| `JWT_AUDIENCE` | não | `cipherchat-web` | Claim `aud` do token de acesso |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | não | `15` | Validade do token de acesso |
 | `TOTP_ENCRYPTION_KEY` | sim | — | Chave do `pgp_sym_encrypt` que cifra o `totp_secret`. Trocar depois invalida todo MFA já ativado |
 | `ADMIN_USERNAME` | só no seed | — | Admin inicial criado por `python -m app.seed` |

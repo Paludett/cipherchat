@@ -26,14 +26,14 @@ fora (outro provedor), habilite na mão como superusuário:
 
 ```bash
 docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db \
-    psql -U app -d e2ee_chat -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+    psql -U app -d cipherchat -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 ```
 
 Conferir:
 
 ```bash
 docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db \
-    psql -U app -d e2ee_chat -c "\dx pgcrypto"
+    psql -U app -d cipherchat -c "\dx pgcrypto"
 ```
 
 A migration `0003` dá à `app_api` o `EXECUTE` nas funções que ela usa. Uso em
@@ -49,7 +49,7 @@ O Postgres **não** publica porta no host, só é possível acessá-lo pela rede
 compose. Para abrir um psql:
 
 ```bash
-docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db psql -U app -d e2ee_chat
+docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db psql -U app -d cipherchat
 ```
 
 O `pg_hba.conf` exige senha até pelo socket local, por isso o `PGPASSWORD`.
@@ -105,7 +105,7 @@ Para mostrar o que a `app_api` não consegue fazer (DROP, UPDATE no `audit_log`,
 
 ```bash
 docker compose exec -e PGPASSWORD="$APP_API_PASSWORD" db \
-    psql -U app_api -d e2ee_chat -f /demo_app_api.sql
+    psql -U app_api -d cipherchat -f /demo_app_api.sql
 ```
 
 Volumes criados antes das roles precisam de `docker compose down -v`.

@@ -37,7 +37,7 @@ export function Logo({ inverted = false }: { inverted?: boolean }) {
       <span className="logo-mark">
         <LockIcon />
       </span>
-      <span className="logo-text">E2EE Chat</span>
+      <span className="logo-text">CipherChat</span>
     </span>
   );
 }

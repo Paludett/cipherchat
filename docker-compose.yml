@@ -1,3 +1,5 @@
+name: cipherchat
+
 services:
   db:
     build: ./db

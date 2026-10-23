@@ -31,7 +31,7 @@ dentro das URLs de conexão. `${{servico.VAR}}` é a sintaxe de referência do R
 `db`:
 
 ```
-POSTGRES_DB=e2ee_chat
+POSTGRES_DB=cipherchat
 POSTGRES_USER=app
 POSTGRES_PASSWORD=...
 DB_ADMIN_PASSWORD=...

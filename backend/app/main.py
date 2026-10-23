@@ -26,9 +26,9 @@ AMBIENTE = os.getenv("AMBIENTE", "DEV")
 
 # Em producao /docs, /redoc e /openapi.json nao existem (404)
 if AMBIENTE == "PROD":
-    app = FastAPI(title="E2EE Chat API", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="CipherChat API", docs_url=None, redoc_url=None, openapi_url=None)
 else:
-    app = FastAPI(title="E2EE Chat API")
+    app = FastAPI(title="CipherChat API")
 app.state.limiter = limiter
 
 app.add_middleware(SlowAPIMiddleware)

@@ -68,9 +68,9 @@ def test_setup_devolve_uri_e_nao_ativa(db, user):
     resp = client.post("/auth/mfa/setup", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["otpauth_uri"].startswith(f"otpauth://totp/ChatSeguro:{username}?")
+    assert body["otpauth_uri"].startswith(f"otpauth://totp/CipherChat:{username}?")
     assert f"secret={body['secret']}" in body["otpauth_uri"]
-    assert "issuer=ChatSeguro" in body["otpauth_uri"]
+    assert "issuer=CipherChat" in body["otpauth_uri"]
     assert totp_enabled(db, user_id) is False
 
 

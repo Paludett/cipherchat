@@ -54,8 +54,8 @@ Assinado com **HS256** usando `JWT_SECRET` (PyJWT). Viaja em `Authorization: Bea
   "sub":   "3f6c1b8e-...-uuid-do-usuario",
   "role":  "user",
   "scope": "access",
-  "iss":   "e2ee-chat",
-  "aud":   "e2ee-chat-web",
+  "iss":   "cipherchat",
+  "aud":   "cipherchat-web",
   "iat":   1790000000,
   "exp":   1790000900,
   "jti":   "b1d2...-uuid-v4"
@@ -67,8 +67,8 @@ Assinado com **HS256** usando `JWT_SECRET` (PyJWT). Viaja em `Authorization: Bea
 | `sub` | `users.id` | Identifica o usuário |
 | `role` | `user` \| `admin` | Autorização (ver coluna "Papel" na tabela de endpoints) |
 | `scope` | `access` | Só `access` passa em rota protegida |
-| `iss` | `JWT_ISSUER` (`e2ee-chat`) | **Validado**, diferente → 401 |
-| `aud` | `JWT_AUDIENCE` (`e2ee-chat-web`) | **Validado**, diferente → 401 |
+| `iss` | `JWT_ISSUER` (`cipherchat`) | **Validado**, diferente → 401 |
+| `aud` | `JWT_AUDIENCE` (`cipherchat-web`) | **Validado**, diferente → 401 |
 | `iat` | emissão | informativo |
 | `exp` | `iat + ACCESS_TOKEN_EXPIRE_MINUTES` (15 min) | **Validado** |
 | `jti` | UUID v4 | Usado para revogação no logout |
@@ -83,15 +83,15 @@ Emitido só quando a senha está correta e o usuário tem MFA ativo. **Não aces
 {
   "sub":   "uuid-do-usuario",
   "scope": "mfa_pending",
-  "iss":   "e2ee-chat",
-  "aud":   "e2ee-chat-mfa",
+  "iss":   "cipherchat",
+  "aud":   "cipherchat-mfa",
   "iat":   1790000000,
   "exp":   1790000300,
   "jti":   "uuid-v4"
 }
 ```
 
-- `scope = "mfa_pending"` e `aud` diferente (`e2ee-chat-mfa`): qualquer rota protegida rejeita com 401. Só `/auth/mfa/verify` e `/auth/mfa/recover` aceitam esse token.
+- `scope = "mfa_pending"` e `aud` diferente (`cipherchat-mfa`): qualquer rota protegida rejeita com 401. Só `/auth/mfa/verify` e `/auth/mfa/recover` aceitam esse token.
 - Sem `role`. Validade de **5 min**. Uso único: após verify/recover com sucesso o `jti` vai para a denylist.
 
 ### 2.3 Revogação
@@ -257,7 +257,7 @@ Browser não permite header `Authorization` no WebSocket, e token em query strin
    ```json
    { "type": "auth", "token": "<JWT acesso>" }
    ```
-3. Servidor valida igual à REST (HS256, `iss`, `aud=e2ee-chat-web`, `scope=access`, `exp`, `jti` fora da denylist, usuário ativo).
+3. Servidor valida igual à REST (HS256, `iss`, `aud=cipherchat-web`, `scope=access`, `exp`, `jti` fora da denylist, usuário ativo).
    - OK → `{ "type": "auth_ok", "user_id": "<sub>" }` e registra o usuário como online.
    - Falha, timeout ou qualquer outra mensagem antes do `auth` → `{ "type": "error", "error": {"code": "unauthenticated", ...} }` e fecha com **1008**.
 4. Token expira com a conexão aberta → servidor fecha com **1008**; cliente refaz login e reconecta.

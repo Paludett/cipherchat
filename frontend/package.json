@@ -1,5 +1,5 @@
 {
-  "name": "e2ee-chat-frontend",
+  "name": "cipherchat-frontend",
   "private": true,
   "type": "module",
   "scripts": {

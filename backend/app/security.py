@@ -18,7 +18,7 @@ BACKUP_CODES_COUNT = 10
 BACKUP_CODE_LENGTH = 10
 BACKUP_CODE_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 # Nome que aparece no app autenticador (Google Authenticator/Authy)
-TOTP_ISSUER = "ChatSeguro"
+TOTP_ISSUER = "CipherChat"
 # bcrypt com o mesmo cost, usado so para gastar tempo no login de usuario inexistente
 DUMMY_HASH = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW"
 

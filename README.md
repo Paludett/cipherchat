@@ -1,7 +1,7 @@
-# E2EE Chat
+# CipherChat
 
 Chat com criptografia ponta a ponta: as mensagens são cifradas e decifradas no navegador
-(Web Crypto API) e o servidor só repassa envelopes que não consegue ler. Trabalho de Segurança.
+(Web Crypto API) e o servidor só repassa envelopes que não consegue ler.
 
 ```
 backend/    FastAPI (API REST, WebSocket, JWT, MFA, auditoria)
@@ -48,8 +48,8 @@ Fluxo completo, papel de cada camada e mapa do código em [docs/arquitetura.md](
 ### 1. Clonar e criar o `.env`
 
 ```bash
-git clone https://github.com/Paludett/Trabalho-seguranca.git
-cd Trabalho-seguranca
+git clone https://github.com/Paludett/cipherchat.git
+cd cipherchat
 cp .env.example .env
 ```
 
@@ -117,7 +117,7 @@ Rodar de novo não muda nada. Outros admins são promovidos pela tela Admin.
 
 ```bash
 docker compose exec -e PGPASSWORD="$POSTGRES_PASSWORD" db \
-    psql -U app -d e2ee_chat -c "\dx pgcrypto"     # extensão habilitada
+    psql -U app -d cipherchat -c "\dx pgcrypto"     # extensão habilitada
 ./db/check_network.sh                              # banco só na rede interna
 ```
 

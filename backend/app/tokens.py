@@ -14,10 +14,10 @@ from app.models import User
 
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ["JWT_SECRET"]
-JWT_ISSUER = os.getenv("JWT_ISSUER", "e2ee-chat")
-JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "e2ee-chat-web")
+JWT_ISSUER = os.getenv("JWT_ISSUER", "cipherchat")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "cipherchat-web")
 # token parcial nunca é passado como token de acesso
-MFA_AUDIENCE = "e2ee-chat-mfa"
+MFA_AUDIENCE = "cipherchat-mfa"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 MFA_TOKEN_EXPIRE_MINUTES = 5
