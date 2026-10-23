@@ -1,7 +1,7 @@
 """Suite de ataques: cada teste simula um ataque e confere que a API se defende.
 
 Roda tudo:        pytest tests/test_ataques.py
-So apresentacao:  pytest -m apresentacao -v
+Casos principais: pytest -m attacks -v
 """
 from datetime import datetime, timedelta, timezone
 
@@ -17,7 +17,7 @@ from tests.test_rbac import assert_401, forjar_token, get
 
 # ---------- Injecao SQL ----------
 
-@pytest.mark.apresentacao
+@pytest.mark.attacks
 @pytest.mark.parametrize("payload", ["' OR '1'='1' --", "admin'--", "'; DROP TABLE users; --"])
 def test_sqli_no_login_nao_tem_efeito(db, user, payload):
     username, _ = user
@@ -36,7 +36,7 @@ def test_sqli_no_login_nao_tem_efeito(db, user, payload):
 
 # ---------- BOLA ----------
 
-@pytest.mark.apresentacao
+@pytest.mark.attacks
 def test_bola_a_nao_altera_recurso_de_b(user, outro):
     _, a_id = user
     _, b_id = outro
@@ -54,7 +54,7 @@ def test_bola_a_nao_altera_recurso_de_b(user, outro):
 
 # ---------- Mass Assignment ----------
 
-@pytest.mark.apresentacao
+@pytest.mark.attacks
 @pytest.mark.parametrize("extra", [{"role": "admin"}, {"is_active": False}])
 def test_mass_assignment_no_registro(extra):
     resp = client.post("/auth/register", json={"username": novo_username(), "password": SENHA, **extra})
@@ -73,7 +73,7 @@ def test_registro_normal_sempre_cria_role_user(db):
 
 # ---------- JWT ----------
 
-@pytest.mark.apresentacao
+@pytest.mark.attacks
 def test_jwt_adulterado_e_recusado(user):
     _, user_id = user
     header, _, assinatura = forjar_token(user_id).split(".")
@@ -100,7 +100,7 @@ def test_jwt_com_audience_errada_e_recusado(user):
 
 # ---------- Rate limit ----------
 
-@pytest.mark.apresentacao
+@pytest.mark.attacks
 def test_rate_limit_devolve_429():
     for _ in range(5):
         client.post("/auth/register", json={"username": novo_username(), "password": "curta"})

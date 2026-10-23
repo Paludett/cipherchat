@@ -11,11 +11,11 @@ docker compose run --rm --no-deps backend pytest tests
 ```
 
 Suíte de ataques (SQLi, BOLA, Mass Assignment, JWT, rate limit, MFA, RBAC) em
-`backend/tests/test_ataques.py`. Os casos da apresentação levam `@pytest.mark.apresentacao`:
+`backend/tests/test_ataques.py`. Os casos de referência levam `@pytest.mark.attacks`:
 
 ```bash
 docker compose run --rm --no-deps backend pytest tests/test_ataques.py     # todos
-docker compose run --rm --no-deps backend pytest -m apresentacao -v        # só os da apresentação
+docker compose run --rm --no-deps backend pytest -m attacks -v             # só os de referência
 ```
 
 Os testes zeram o rate limiter antes de cada teste (`backend/tests/conftest.py`), pois todos
