@@ -26,33 +26,45 @@ def nao_autenticado() -> ApiError:
     return ApiError(401, "unauthenticated", "Não autenticado.")
 
 
-def authenticate(db: Session, token: str) -> User:
-    """Valida o JWT de acesso e devolve o usuario. Usado pelo HTTP e pelo WebSocket"""
+def authenticate_with_claims(db: Session, token: str) -> tuple[User, dict]:
+    """Valida o JWT de acesso e devolve o usuario e os claims. Usado pelo HTTP e pelo WebSocket"""
     try:
         claims = jwt.decode(
             token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
             audience=JWT_AUDIENCE, issuer=JWT_ISSUER,
-            options={"require": ["exp", "iss", "aud", "sub"]},
+            options={"require": ["exp", "iss", "aud", "sub", "jti"]},
         )
         user_id = uuid.UUID(claims["sub"])
+        jti = uuid.UUID(claims["jti"])
     except (jwt.InvalidTokenError, ValueError, TypeError):  # expirado, iss/aud errado, adulterado, sub invalido
         raise nao_autenticado()
     # token de MFA ja cai no aud errado, o scope e segunda barreira
     if claims.get("scope") != "access":
         raise nao_autenticado()
+    # Revogado pelo logout
+    if db.get(RevokedToken, jti) is not None:
+        raise nao_autenticado()
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise nao_autenticado()
-    return user
+    return user, claims
 
 
-def get_current_user(
+def authenticate(db: Session, token: str) -> User:
+    return authenticate_with_claims(db, token)[0]
+
+
+def get_current_session(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
-) -> User:
+) -> tuple[User, dict]:
     if creds is None:
         raise nao_autenticado()
-    return authenticate(db, creds.credentials)
+    return authenticate_with_claims(db, creds.credentials)
+
+
+def get_current_user(session: tuple[User, dict] = Depends(get_current_session)) -> User:
+    return session[0]
 
 
 def get_mfa_pending(

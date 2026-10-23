@@ -4,10 +4,12 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
+from starlette.websockets import WebSocketDisconnect
 
 from app import security, tokens
 from app.db import SessionLocal
 from app.main import app
+from app.models import User
 
 SENHA = "senha-forte-123"
 
@@ -199,3 +201,60 @@ def test_auditoria_nao_guarda_senha(db, user):
     login(username, "senha-secreta-errada")
     _, _, details = ultimo_evento(db, username)
     assert "senha-secreta-errada" not in str(details)
+
+
+# ---------- Logout ----------
+
+def logout(token: str):
+    return client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
+
+
+def test_logout_revoga_o_token(user):
+    username, _ = user
+    token = login(username).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get("/users/me", headers=headers).status_code == 200
+
+    assert logout(token).status_code == 204
+    assert client.get("/users/me", headers=headers).status_code == 401
+
+
+def test_logout_duas_vezes_com_o_mesmo_token_e_401(user):
+    username, _ = user
+    token = login(username).json()["access_token"]
+    assert logout(token).status_code == 204
+    assert logout(token).status_code == 401
+
+
+def test_logout_nao_derruba_outras_sessoes(user):
+    username, _ = user
+    primeiro = login(username).json()["access_token"]
+    segundo = login(username).json()["access_token"]
+    assert logout(primeiro).status_code == 204
+    assert client.get("/users/me", headers={"Authorization": f"Bearer {segundo}"}).status_code == 200
+
+
+def test_logout_sem_token_e_401():
+    assert client.post("/auth/logout").status_code == 401
+
+
+def test_logout_com_token_parcial_de_mfa_e_401(db, user):
+    _, user_id = user
+    assert logout(tokens.create_mfa_token(db.get(User, user_id))).status_code == 401
+
+
+def test_token_revogado_nao_abre_websocket(user):
+    username, _ = user
+    token = login(username).json()["access_token"]
+    logout(token)
+    with pytest.raises(WebSocketDisconnect) as erro:
+        with client.websocket_connect("/ws", subprotocols=["bearer", token]) as ws:
+            ws.receive_text()
+    assert erro.value.code == 1008
+
+
+def test_logout_e_auditado(db, user):
+    username, _ = user
+    logout(login(username).json()["access_token"])
+    action, _, _ = ultimo_evento(db, username)
+    assert action == "logout"

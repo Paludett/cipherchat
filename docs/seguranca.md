@@ -55,8 +55,9 @@ do mesmo IP.
 O token de acesso fica só em memória (React context, `frontend/src/auth.tsx`). Trade-off:
 recarregar a página desloga o usuário (sem refresh token nesta versão), mas nenhum script
 injetado (XSS) consegue ler o token de `localStorage`/`sessionStorage`. O logout descarta o token local e chama
-`POST /auth/logout`, **mas essa rota ainda não existe no backend** (a chamada cai em 404 e é
-ignorada). Até ela existir, o token continua válido até expirar (15 min).
+`POST /auth/logout`, que grava o `jti` na `revoked_tokens`. A partir daí o token é recusado (401)
+no REST e no handshake do `/ws`. Uma conexão WebSocket já aberta não é derrubada pelo logout,
+mas o frontend a fecha ao sair.
 
 ## Senhas, TOTP e backup codes
 

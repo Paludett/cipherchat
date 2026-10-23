@@ -1,5 +1,6 @@
 import base64
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -15,7 +16,7 @@ def forjar_token(user_id, **alterar) -> str:
     claims = {
         "sub": str(user_id), "role": "user", "scope": "access",
         "iss": tokens.JWT_ISSUER, "aud": tokens.JWT_AUDIENCE,
-        "iat": agora, "exp": agora + timedelta(minutes=5),
+        "iat": agora, "exp": agora + timedelta(minutes=5), "jti": str(uuid.uuid4()),
     }
     claims.update(alterar)
     return jwt.encode(claims, tokens.JWT_SECRET, algorithm=tokens.JWT_ALGORITHM)

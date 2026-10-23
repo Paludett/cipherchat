@@ -2,14 +2,14 @@ import uuid
 from datetime import datetime, timezone
 
 import pyotp
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import security
 from app.audit import log_event
 from app.db import get_db
-from app.deps import get_current_user, get_mfa_pending, nao_autenticado
+from app.deps import get_current_session, get_current_user, get_mfa_pending, nao_autenticado
 from app.errors import ApiError
 from app.models import RevokedToken, User
 from app.ratelimit import BLOQUEIO_MINUTOS, LIMITE_AUTH, limite_excedido, limiter, login_bloqueado
@@ -136,16 +136,34 @@ def mfa_activate(
     return BackupCodesOut(backup_codes=codes)
 
 
-def _finish_mfa_login(db: Session, user: User, claims: dict, ip: str | None, action: str) -> TokenOut:
+def _revogar(db: Session, claims: dict) -> None:
+    # PK no jti, o segundo uso concorrente do mesmo token cai no IntegrityError
     db.add(RevokedToken(
         jti=uuid.UUID(claims["jti"]),
         expires_at=datetime.fromtimestamp(claims["exp"], timezone.utc),
     ))
     try:
         db.commit()
-    except IntegrityError: 
+    except IntegrityError:
         db.rollback()
         raise nao_autenticado()
+
+
+@router.post("/logout", status_code=204)
+def logout(
+    request: Request,
+    session: tuple[User, dict] = Depends(get_current_session),
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else None
+    user, claims = session
+    _revogar(db, claims)
+    log_event(db, "logout", ip, actor=user.id)
+    return Response(status_code=204)
+
+
+def _finish_mfa_login(db: Session, user: User, claims: dict, ip: str | None, action: str) -> TokenOut:
+    _revogar(db, claims)
     log_event(db, action, ip, actor=user.id)
     return TokenOut(
         access_token=create_access_token(user),
