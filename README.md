@@ -3,6 +3,33 @@
 Chat com criptografia ponta a ponta: as mensagens são cifradas e decifradas no navegador
 (Web Crypto API) e o servidor só repassa envelopes que não consegue ler.
 
+**Demo:** https://frontend-production-ed9e.up.railway.app
+
+![Mensagem legível no chat e o mesmo envelope cifrado trafegando no WebSocket](docs/img/ws-cifrado.png)
+
+| | |
+|---|---|
+| ![Login](docs/img/login.png) | ![Chat](docs/img/chat.png) |
+| ![Configuração do MFA](docs/img/mfa-setup.png) | ![Backup codes](docs/img/backup-codes.png) |
+| ![Login com MFA](docs/img/login-mfa.png) | ![Painel admin](docs/img/admin.png) |
+
+**Stack:** FastAPI · PostgreSQL 16 + pgcrypto · React + Vite + TypeScript · Docker Compose · GitHub Actions · Railway
+
+### Decisões de segurança
+
+- **E2EE:** RSA-OAEP 2048 (SHA-256) para trocar uma chave AES-256-GCM nova por mensagem. A AAD
+  amarra `msg_id`, remetente, destinatário e horário ao ciphertext.
+- **Chave privada não exportável:** `CryptoKey` com `extractable: false` no IndexedDB; o servidor só vê a pública.
+- **Verificação de identidade:** fingerprint SHA-256 da chave pública para conferir por outro canal.
+- **Autenticação:** JWT de vida curta com revogação por `jti` no logout, MFA TOTP e backup codes de uso único.
+- **Autorização:** RBAC com o papel lido do banco, proteção contra BOLA e mass assignment.
+- **Banco com menor privilégio:** roles separadas (`app_api` só DML, `db_admin` DDL, `auditor` só leitura
+  do log), senhas e segredo TOTP tratados pelo pgcrypto, audit log com triggers.
+- **Abuso:** rate limit (5/min em auth, 60/min geral), bloqueio de login após falhas, limites de body e de frame WS.
+- **DevSecOps:** Bandit (SAST), pip-audit e npm audit (SCA) e uma suíte de testes de ataque (SQLi, BOLA, JWT, MFA) no CI.
+
+![Pipeline DevSecOps](docs/img/ci.png)
+
 ```
 backend/    FastAPI (API REST, WebSocket, JWT, MFA, auditoria)
 frontend/   React + Vite + TypeScript (criptografia no cliente)
